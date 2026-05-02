@@ -1,0 +1,39 @@
+{
+  "" : {
+    "diagnostics" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/Outfit App-primary.dia",
+    "emit-module-dependencies" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/Outfit App-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/Outfit App-primary-emit-module.dia",
+    "pch" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/Outfit App-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/Outfit App-primary.swiftdeps"
+  },
+  "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/GeneratedAssetSymbols.dia",
+    "index-unit-output-path" : "/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftdeps",
+    "swiftmodule" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/GeneratedAssetSymbols~partial.swiftmodule"
+  },
+  "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/Outfit App/ContentView.swift" : {
+    "const-values" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/ContentView.swiftconstvalues",
+    "dependencies" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/ContentView.d",
+    "diagnostics" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/ContentView.dia",
+    "index-unit-output-path" : "/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/ContentView.o",
+    "llvm-bc" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/ContentView.bc",
+    "object" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/ContentView.o",
+    "swift-dependencies" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/ContentView.swiftdeps",
+    "swiftmodule" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/ContentView~partial.swiftmodule"
+  },
+  "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/Outfit App/Outfit_AppApp.swift" : {
+    "const-values" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/Outfit_AppApp.swiftconstvalues",
+    "dependencies" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/Outfit_AppApp.d",
+    "diagnostics" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/Outfit_AppApp.dia",
+    "index-unit-output-path" : "/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/Outfit_AppApp.o",
+    "llvm-bc" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/Outfit_AppApp.bc",
+    "object" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/Outfit_AppApp.o",
+    "swift-dependencies" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/Outfit_AppApp.swiftdeps",
+    "swiftmodule" : "/Users/nathanagustin/Desktop/Coding Projects/XCode/Outfit App/DerivedData/Build/Intermediates.noindex/Outfit App.build/Debug-iphoneos/Outfit App.build/Objects-normal/arm64/Outfit_AppApp~partial.swiftmodule"
+  }
+}
