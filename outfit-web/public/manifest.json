@@ -1,0 +1,10 @@
+{
+  "name": "Outfit App",
+  "short_name": "Outfits",
+  "description": "Manage your closet and outfits online",
+  "start_url": "/closet",
+  "display": "standalone",
+  "background_color": "#fafafa",
+  "theme_color": "#18181b",
+  "orientation": "portrait"
+}
