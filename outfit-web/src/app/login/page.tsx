@@ -24,7 +24,17 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = (await response.json()) as { ok?: boolean; error?: string };
+      let data: { ok?: boolean; error?: string } = {};
+      try {
+        data = await response.json();
+      } catch {
+        setMessage(
+          response.ok
+            ? "Unexpected server response. Try again."
+            : "The app server returned an error. If this is your Vercel site, check Environment Variables and Root Directory (outfit-web), then redeploy."
+        );
+        return;
+      }
 
       if (!response.ok) {
         setMessage(data.error ?? "Something went wrong. Please try again.");
@@ -38,8 +48,11 @@ export default function LoginPage() {
         router.refresh();
       }
     } catch {
+      const isLocal = window.location.hostname === "localhost";
       setMessage(
-        "Could not reach the server. Open http://localhost:3000 in Safari or Chrome (not the Cursor preview browser)."
+        isLocal
+          ? "Could not reach the server. Run npm run dev in outfit-web, then open http://localhost:3000 in Safari or Chrome."
+          : "Could not reach the server. Check your internet connection and try again."
       );
     } finally {
       setLoading(false);
