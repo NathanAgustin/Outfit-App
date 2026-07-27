@@ -1,0 +1,27 @@
+# macOS
+.DS_Store
+
+# Xcode
+DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# Node / Next.js (also covered by outfit-web/.gitignore)
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# Env / secrets
+.env
+.env.*
+!.env*.example
+
+# Vercel
+.vercel/
+
+# Logs / misc
+*.log
+*.tsbuildinfo
+buildServer.json
