@@ -10,7 +10,7 @@ import {
 } from "@/lib/storage";
 import { ClothingItem, SavedOutfit, displayName } from "@/lib/types";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 function itemsForCategory(items: ClothingItem[], category: ClothingItem["category"]) {
   return items.filter((item) => item.category === category);
@@ -385,20 +385,9 @@ export function OutfitsView() {
                   >
                     Rename
                   </button>
-                  <label className="inline-flex cursor-pointer items-center rounded-lg border px-3 py-1.5 text-xs font-normal leading-none text-zinc-900">
-                    Preview photo
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) setOutfitPreview(outfit, file);
-                        e.currentTarget.value = "";
-                      }}
-                    />
-                  </label>
+                  <PreviewPhotoButton
+                    onPick={(file) => setOutfitPreview(outfit, file)}
+                  />
                   {outfit.preview_image_path && (
                     <button
                       type="button"
@@ -422,6 +411,33 @@ export function OutfitsView() {
         )}
       </section>
     </div>
+  );
+}
+
+function PreviewPhotoButton({ onPick }: { onPick: (file: File) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="rounded-lg border px-3 py-1.5 text-xs"
+      >
+        Preview photo
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onPick(file);
+          e.currentTarget.value = "";
+        }}
+      />
+    </>
   );
 }
 
