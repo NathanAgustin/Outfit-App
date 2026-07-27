@@ -141,29 +141,16 @@ export function ClosetView() {
       <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-zinc-800">Add clothing item</h2>
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-3 py-5 text-center">
-            <span className="text-sm font-medium text-zinc-700">Photo library</span>
-            <span className="mt-1 text-xs text-zinc-500">Choose existing</span>
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
-            />
-          </label>
-          <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-3 py-5 text-center">
-            <span className="text-sm font-medium text-zinc-700">Take photo</span>
-            <span className="mt-1 text-xs text-zinc-500">Use camera</span>
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
-            />
-          </label>
-        </div>
+        <label className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-6 text-center">
+          <span className="text-sm font-medium text-zinc-700">Add photo</span>
+          <span className="mt-1 text-xs text-zinc-500">Camera or photo library</span>
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
+          />
+        </label>
 
         {preview && (
           // eslint-disable-next-line @next/next/no-img-element

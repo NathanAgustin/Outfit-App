@@ -1,2 +1,0 @@
-Target dependency graph (1 target)
-Target 'Outfit App' in project 'Outfit App' (no dependencies)
