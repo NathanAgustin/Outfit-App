@@ -13,9 +13,7 @@ import {
   CLOTHING_CATEGORIES,
   ClothingCategory,
   ClothingItem,
-  displayName,
 } from "@/lib/types";
-import { SupabaseClient } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 export function ClosetView() {
@@ -93,7 +91,7 @@ export function ClosetView() {
   }
 
   async function handleDelete(item: ClothingItem) {
-    if (!confirm(`Delete ${displayName(item.name)}?`)) return;
+    if (!confirm(`Delete ${item.name.trim() || "this item"}?`)) return;
     setError(null);
 
     const { error: deleteRowError } = await supabase
@@ -218,12 +216,12 @@ export function ClosetView() {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={publicImageUrl(supabase, item.image_path) ?? ""}
-                      alt={displayName(item.name)}
+                      alt={item.name.trim() || "Clothing item"}
                       className="h-14 w-14 shrink-0 rounded-lg object-cover bg-zinc-100"
                     />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-zinc-900">
-                        {displayName(item.name)}
+                        {item.name.trim()}
                       </p>
                       <p className="text-xs text-zinc-500">{cat.label}</p>
                     </div>
