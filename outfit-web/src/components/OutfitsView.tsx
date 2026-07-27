@@ -385,7 +385,7 @@ export function OutfitsView() {
                   >
                     Rename
                   </button>
-                  <label className="cursor-pointer rounded-lg border px-3 py-1.5 text-xs">
+                  <label className="inline-flex cursor-pointer items-center rounded-lg border px-3 py-1.5 text-xs font-normal leading-none text-zinc-900">
                     Preview photo
                     <input
                       type="file"

@@ -10,9 +10,19 @@ export default async function MainLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+
+  // Fail fast if Supabase is paused / unreachable instead of hanging the page.
+  const authResult = await Promise.race([
+    supabase.auth.getUser(),
+    new Promise<{ data: { user: null }; error: { message: string } }>((resolve) =>
+      setTimeout(
+        () => resolve({ data: { user: null }, error: { message: "Auth timed out" } }),
+        8000
+      )
+    ),
+  ]);
+
+  const user = authResult.data.user;
 
   if (!user) {
     redirect("/login");

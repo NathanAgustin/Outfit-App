@@ -7,6 +7,7 @@ Mobile-first web version of the Outfit App with **user accounts** and **cloud st
 - Email/password sign up and sign in
 - Closet: upload clothing photos, categorize, edit, delete
 - Outfit Manager: pick top/bottom/shoes/accessories, save/load/rename/delete outfits
+- Compatibility: select a top/bottom/shoes and browse matching pieces from saved outfits
 - Custom outfit preview photos (defaults to top image)
 - Data stored per user in Supabase (database + image storage)
 - iPhone-friendly layout with bottom tab navigation
@@ -75,14 +76,24 @@ Share the Vercel URL. Users sign up with email/password; their closet and outfit
 
 ```
 outfit-web/
-├── src/app/(main)/closet/     # Closet tab
-├── src/app/(main)/outfits/    # Outfit Manager tab
-├── src/app/login/             # Sign in / sign up
-├── src/components/            # UI components
-├── src/lib/supabase/          # Auth + database client
-├── src/lib/storage.ts         # Image upload helpers
-└── supabase/schema.sql        # Database + storage setup
+├── src/app/(main)/closet/          # Closet tab
+├── src/app/(main)/outfits/         # Outfit Manager tab
+├── src/app/(main)/compatibility/   # Compatibility matches
+├── src/app/login/                  # Sign in / sign up
+├── src/components/                 # UI components
+├── src/lib/supabase/               # Auth + database client
+├── src/lib/storage.ts              # Image upload helpers
+└── supabase/schema.sql             # Database + storage setup
 ```
+
+## Troubleshooting: 504 / MIDDLEWARE_INVOCATION_TIMEOUT
+
+Supabase **free** projects pause after ~7 days of inactivity. When paused, auth calls hang and Vercel middleware can return a 504.
+
+1. Open [Supabase Dashboard](https://supabase.com/dashboard) → your project
+2. If it says **Paused**, click **Restore** / **Unpause** and wait until it’s active
+3. Reload your Vercel site
+4. Optional: add GitHub repo secrets `SUPABASE_URL` and `SUPABASE_ANON_KEY` so `.github/workflows/keep-supabase-alive.yml` pings the API twice a week
 
 ## Notes
 
