@@ -200,7 +200,7 @@ export function ClosetView() {
         <p className="text-sm text-zinc-500">No items yet. Add your first clothing item above.</p>
       ) : (
         <>
-          <p className="text-xs text-zinc-500">Hold “Hold to move” on a category, then drag to reorder.</p>
+          <p className="text-xs text-zinc-500">Hold the ⋮⋮ grip on a category, then drag to reorder.</p>
           <SortableCategoryList
             ids={order.filter((category) => items.some((item) => item.category === category))}
           >

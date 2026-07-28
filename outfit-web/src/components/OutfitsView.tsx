@@ -361,7 +361,7 @@ export function OutfitsView() {
     <div className="space-y-6">
       <section>
         <h1 className="text-xl font-bold text-zinc-900">Browse</h1>
-        <p className="mt-1 text-xs text-zinc-500">Hold “Hold to move” on a category, then drag to reorder.</p>
+        <p className="mt-1 text-xs text-zinc-500">Hold the ⋮⋮ grip on a category, then drag to reorder.</p>
       </section>
 
       {error && (

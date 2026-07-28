@@ -109,7 +109,7 @@ function SortableCategoryItem({
   );
 }
 
-/** Long-press affordance shown on category headers. */
+/** Compact long-press grip for category headers. */
 export function CategoryDragHint({
   listeners,
   attributes,
@@ -118,14 +118,27 @@ export function CategoryDragHint({
   return (
     <button
       type="button"
-      className={`rounded-md px-2 py-1 text-[10px] font-medium uppercase tracking-wide ${
-        isDragging ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-500"
+      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-zinc-400 ${
+        isDragging ? "text-zinc-900" : "hover:text-zinc-600"
       }`}
       aria-label="Hold and drag to reorder"
       {...attributes}
       {...listeners}
     >
-      Hold to move
+      <svg
+        viewBox="0 0 10 16"
+        width="8"
+        height="12"
+        fill="currentColor"
+        aria-hidden
+      >
+        <circle cx="2.5" cy="2.5" r="1.25" />
+        <circle cx="7.5" cy="2.5" r="1.25" />
+        <circle cx="2.5" cy="8" r="1.25" />
+        <circle cx="7.5" cy="8" r="1.25" />
+        <circle cx="2.5" cy="13.5" r="1.25" />
+        <circle cx="7.5" cy="13.5" r="1.25" />
+      </svg>
     </button>
   );
 }

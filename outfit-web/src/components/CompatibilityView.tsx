@@ -1,7 +1,6 @@
 "use client";
 
 import { useCategoryOrder } from "@/components/CategoryOrderProvider";
-import { CategoryDragHint, SortableCategoryList } from "@/components/SortableCategoryList";
 import { getCompatibilityMatches, CompatibilityFocus } from "@/lib/compatibility";
 import { friendlySupabaseError } from "@/lib/supabase/errors";
 import { createClient } from "@/lib/supabase/client";
@@ -118,24 +117,20 @@ export function CompatibilityView() {
     <div className="space-y-6">
       <section>
         <h1 className="text-xl font-bold text-zinc-900">Style</h1>
-        <p className="mt-1 text-xs text-zinc-500">Hold “Hold to move” on a category, then drag to reorder.</p>
       </section>
 
       {error && (
         <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
       )}
 
-      <SortableCategoryList ids={order}>
-        {(category, drag) => {
+      <div className="space-y-3">
+        {order.map((category) => {
           const label = slotLabel(category);
 
           if (category === focus) {
             return (
-              <section className="rounded-2xl border border-zinc-900 bg-white p-4">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <h2 className="text-sm font-semibold text-zinc-900">Selected {label}</h2>
-                  <CategoryDragHint {...drag} />
-                </div>
+              <section key={category} className="rounded-2xl border border-zinc-900 bg-white p-4">
+                <h2 className="mb-2 text-sm font-semibold text-zinc-900">Selected {label}</h2>
                 {focusItems.length === 0 ? (
                   <p className="mt-2 text-sm text-zinc-500">
                     No {categoryLabel(category).toLowerCase()} in your wardrobe yet.
@@ -156,11 +151,8 @@ export function CompatibilityView() {
 
           if (category === "accessories") {
             return (
-              <section className="rounded-2xl border border-zinc-200 bg-white p-4">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <h2 className="text-sm font-semibold text-zinc-800">Accessories</h2>
-                  <CategoryDragHint {...drag} />
-                </div>
+              <section key={category} className="rounded-2xl border border-zinc-200 bg-white p-4">
+                <h2 className="mb-2 text-sm font-semibold text-zinc-800">Accessories</h2>
                 {!selectedItem ? (
                   <p className="text-sm text-zinc-500">Select a piece to see accessory matches.</p>
                 ) : (
@@ -189,17 +181,14 @@ export function CompatibilityView() {
 
           if (!selectedItem) {
             return (
-              <section className="rounded-2xl border border-zinc-200 bg-white p-4">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setFocus(category)}
-                    className="text-left text-sm font-semibold text-zinc-800"
-                  >
-                    {label}
-                  </button>
-                  <CategoryDragHint {...drag} />
-                </div>
+              <section key={category} className="rounded-2xl border border-zinc-200 bg-white p-4">
+                <button
+                  type="button"
+                  onClick={() => setFocus(category)}
+                  className="mb-2 text-left text-sm font-semibold text-zinc-800"
+                >
+                  {label}
+                </button>
                 <p className="text-sm text-zinc-500">Tap the title to select this category.</p>
               </section>
             );
@@ -209,7 +198,7 @@ export function CompatibilityView() {
           const matchItems = matches[key];
 
           return (
-            <section className="rounded-2xl border border-zinc-200 bg-white p-4">
+            <section key={category} className="rounded-2xl border border-zinc-200 bg-white p-4">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <button
                   type="button"
@@ -218,14 +207,11 @@ export function CompatibilityView() {
                 >
                   {label}
                 </button>
-                <div className="flex items-center gap-2">
-                  {matchItems.length > 0 && (
-                    <span className="text-xs text-zinc-500">
-                      {safeIndex(matchIndexes[key], matchItems.length) + 1} of {matchItems.length}
-                    </span>
-                  )}
-                  <CategoryDragHint {...drag} />
-                </div>
+                {matchItems.length > 0 && (
+                  <span className="text-xs text-zinc-500">
+                    {safeIndex(matchIndexes[key], matchItems.length) + 1} of {matchItems.length}
+                  </span>
+                )}
               </div>
               <MatchBody
                 items={matchItems}
@@ -247,8 +233,8 @@ export function CompatibilityView() {
               />
             </section>
           );
-        }}
-      </SortableCategoryList>
+        })}
+      </div>
 
       {selectedItem && outfits.length === 0 && (
         <p className="rounded-xl bg-white p-4 text-sm text-zinc-600 shadow-sm ring-1 ring-zinc-200">
