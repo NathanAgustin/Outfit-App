@@ -4,20 +4,52 @@ import { getCompatibilityMatches, CompatibilityFocus } from "@/lib/compatibility
 import { friendlySupabaseError } from "@/lib/supabase/errors";
 import { createClient } from "@/lib/supabase/client";
 import { publicImageUrl } from "@/lib/storage";
-import { ClothingItem, SavedOutfit, displayName } from "@/lib/types";
+import {
+  ClothingItem,
+  OUTFIT_SLOT_CATEGORIES,
+  SavedOutfit,
+  displayName,
+} from "@/lib/types";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-const FOCUS_OPTIONS: { value: CompatibilityFocus; label: string }[] = [
-  { value: "tops", label: "Top" },
-  { value: "bottoms", label: "Bottom" },
-  { value: "shoes", label: "Shoes" },
+const FOCUS_OPTIONS: { value: CompatibilityFocus; label: string }[] = OUTFIT_SLOT_CATEGORIES.map(
+  (slot) => ({ value: slot.value, label: slot.label })
+);
+
+type MatchKey = keyof ReturnType<typeof getCompatibilityMatches>;
+
+const MATCH_ROWS: { key: MatchKey; title: string; emptyLabel: string; focusValue?: CompatibilityFocus }[] = [
+  { key: "tops", title: "Tops", emptyLabel: "No tops paired with this piece yet.", focusValue: "tops" },
+  { key: "bottoms", title: "Bottoms", emptyLabel: "No bottoms paired with this piece yet.", focusValue: "bottoms" },
+  { key: "dresses", title: "Dresses", emptyLabel: "No dresses paired with this piece yet.", focusValue: "dresses" },
+  {
+    key: "outerwear",
+    title: "Outerwear",
+    emptyLabel: "No outerwear paired with this piece yet.",
+    focusValue: "outerwear",
+  },
+  { key: "shoes", title: "Shoes", emptyLabel: "No shoes paired with this piece yet.", focusValue: "shoes" },
+  {
+    key: "accessories",
+    title: "Accessories",
+    emptyLabel: "No accessories paired with this piece yet.",
+  },
 ];
 
 function safeIndex(index: number, count: number) {
   if (count === 0) return 0;
   return ((index % count) + count) % count;
 }
+
+const emptyIndexes = {
+  tops: 0,
+  bottoms: 0,
+  dresses: 0,
+  outerwear: 0,
+  shoes: 0,
+  accessories: 0,
+};
 
 export function CompatibilityView() {
   const supabase = useMemo(() => createClient(), []);
@@ -28,12 +60,7 @@ export function CompatibilityView() {
 
   const [focus, setFocus] = useState<CompatibilityFocus>("tops");
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [matchIndexes, setMatchIndexes] = useState({
-    tops: 0,
-    bottoms: 0,
-    shoes: 0,
-    accessories: 0,
-  });
+  const [matchIndexes, setMatchIndexes] = useState(emptyIndexes);
 
   const focusItems = useMemo(
     () => items.filter((item) => item.category === focus),
@@ -44,7 +71,14 @@ export function CompatibilityView() {
 
   const matches = useMemo(() => {
     if (!selectedItem) {
-      return { tops: [], bottoms: [], shoes: [], accessories: [] };
+      return {
+        tops: [],
+        bottoms: [],
+        dresses: [],
+        outerwear: [],
+        shoes: [],
+        accessories: [],
+      };
     }
     return getCompatibilityMatches(selectedItem, outfits, items);
   }, [selectedItem, outfits, items]);
@@ -59,10 +93,10 @@ export function CompatibilityView() {
     ]);
 
     if (itemsRes.error) setError(friendlySupabaseError(itemsRes.error.message));
-    else setItems(itemsRes.data ?? []);
+    else setItems((itemsRes.data as ClothingItem[]) ?? []);
 
     if (outfitsRes.error) setError(friendlySupabaseError(outfitsRes.error.message));
-    else setOutfits(outfitsRes.data ?? []);
+    else setOutfits((outfitsRes.data as SavedOutfit[]) ?? []);
 
     setLoading(false);
   }, [supabase]);
@@ -73,7 +107,7 @@ export function CompatibilityView() {
 
   useEffect(() => {
     setSelectedIndex(0);
-    setMatchIndexes({ tops: 0, bottoms: 0, shoes: 0, accessories: 0 });
+    setMatchIndexes(emptyIndexes);
   }, [focus]);
 
   useEffect(() => {
@@ -81,7 +115,7 @@ export function CompatibilityView() {
   }, [focusItems.length]);
 
   useEffect(() => {
-    setMatchIndexes({ tops: 0, bottoms: 0, shoes: 0, accessories: 0 });
+    setMatchIndexes(emptyIndexes);
   }, [selectedItem?.id]);
 
   if (loading) {
@@ -119,7 +153,9 @@ export function CompatibilityView() {
       </section>
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-4">
-        <h2 className="text-sm font-semibold text-zinc-800">Selected {FOCUS_OPTIONS.find((o) => o.value === focus)?.label}</h2>
+        <h2 className="text-sm font-semibold text-zinc-800">
+          Selected {FOCUS_OPTIONS.find((o) => o.value === focus)?.label}
+        </h2>
         {focusItems.length === 0 ? (
           <p className="mt-2 text-sm text-zinc-500">
             No {focus} in your wardrobe yet. Add some in Wardrobe, then save outfits.
@@ -146,91 +182,28 @@ export function CompatibilityView() {
         <section className="space-y-3">
           <h2 className="text-sm font-semibold text-zinc-800">Matches from your outfits</h2>
 
-          {focus !== "tops" && (
+          {MATCH_ROWS.filter((row) => row.focusValue !== focus).map((row) => (
             <MatchRow
-              title="Tops"
-              items={matches.tops}
-              index={matchIndexes.tops}
+              key={row.key}
+              title={row.title}
+              items={matches[row.key]}
+              index={matchIndexes[row.key]}
               onPrev={() =>
                 setMatchIndexes((m) => ({
                   ...m,
-                  tops: safeIndex(m.tops - 1, matches.tops.length),
+                  [row.key]: safeIndex(m[row.key] - 1, matches[row.key].length),
                 }))
               }
               onNext={() =>
                 setMatchIndexes((m) => ({
                   ...m,
-                  tops: safeIndex(m.tops + 1, matches.tops.length),
+                  [row.key]: safeIndex(m[row.key] + 1, matches[row.key].length),
                 }))
               }
-              emptyLabel="No tops paired with this piece yet."
+              emptyLabel={row.emptyLabel}
               supabase={supabase}
             />
-          )}
-
-          {focus !== "bottoms" && (
-            <MatchRow
-              title="Bottoms"
-              items={matches.bottoms}
-              index={matchIndexes.bottoms}
-              onPrev={() =>
-                setMatchIndexes((m) => ({
-                  ...m,
-                  bottoms: safeIndex(m.bottoms - 1, matches.bottoms.length),
-                }))
-              }
-              onNext={() =>
-                setMatchIndexes((m) => ({
-                  ...m,
-                  bottoms: safeIndex(m.bottoms + 1, matches.bottoms.length),
-                }))
-              }
-              emptyLabel="No bottoms paired with this piece yet."
-              supabase={supabase}
-            />
-          )}
-
-          {focus !== "shoes" && (
-            <MatchRow
-              title="Shoes"
-              items={matches.shoes}
-              index={matchIndexes.shoes}
-              onPrev={() =>
-                setMatchIndexes((m) => ({
-                  ...m,
-                  shoes: safeIndex(m.shoes - 1, matches.shoes.length),
-                }))
-              }
-              onNext={() =>
-                setMatchIndexes((m) => ({
-                  ...m,
-                  shoes: safeIndex(m.shoes + 1, matches.shoes.length),
-                }))
-              }
-              emptyLabel="No shoes paired with this piece yet."
-              supabase={supabase}
-            />
-          )}
-
-          <MatchRow
-            title="Accessories"
-            items={matches.accessories}
-            index={matchIndexes.accessories}
-            onPrev={() =>
-              setMatchIndexes((m) => ({
-                ...m,
-                accessories: safeIndex(m.accessories - 1, matches.accessories.length),
-              }))
-            }
-            onNext={() =>
-              setMatchIndexes((m) => ({
-                ...m,
-                accessories: safeIndex(m.accessories + 1, matches.accessories.length),
-              }))
-            }
-            emptyLabel="No accessories paired with this piece yet."
-            supabase={supabase}
-          />
+          ))}
         </section>
       )}
     </div>
@@ -304,14 +277,14 @@ function ItemCarousel({
           <img
             src={publicImageUrl(supabase, item.image_path) ?? ""}
             alt={displayName(item.name)}
-            className="h-48 w-full rounded-xl object-contain bg-zinc-50"
+            className="h-48 w-full rounded-xl object-contain bg-white"
           />
           <div className="flex w-full items-center gap-3">
             <button type="button" onClick={onPrev} className="rounded-lg border px-3 py-2 text-sm">
               ‹
             </button>
             <div className="min-w-0 flex-1 text-center">
-              <p className="truncate text-sm font-medium">{displayName(item.name)}</p>
+              <p className="truncate text-sm font-medium">{item.name.trim() || " "}</p>
               <p className="text-xs text-zinc-500">
                 {index + 1} of {items.length}
               </p>
@@ -331,10 +304,10 @@ function ItemCarousel({
             <img
               src={publicImageUrl(supabase, item.image_path) ?? ""}
               alt={displayName(item.name)}
-              className="h-16 w-16 shrink-0 rounded-lg object-cover bg-zinc-100"
+              className="h-16 w-16 shrink-0 rounded-lg object-cover bg-white"
             />
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{displayName(item.name)}</p>
+              <p className="truncate text-sm font-medium">{item.name.trim() || " "}</p>
             </div>
           </div>
           <button type="button" onClick={onNext} className="rounded-lg border px-3 py-2 text-sm">

@@ -1,4 +1,5 @@
 -- Run this entire script in Supabase Dashboard → SQL Editor → New query → Run
+-- (for brand-new projects). Existing projects should run migration_dress_outerwear_optional_slots.sql
 
 -- ========== TABLES ==========
 
@@ -6,7 +7,7 @@ create table if not exists public.clothing_items (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   name text not null default '',
-  category text not null check (category in ('tops', 'bottoms', 'shoes', 'accessories')),
+  category text not null check (category in ('tops', 'bottoms', 'dresses', 'outerwear', 'shoes', 'accessories')),
   image_path text not null,
   created_at timestamptz not null default now()
 );
@@ -27,9 +28,11 @@ create table if not exists public.saved_outfits (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   name text not null,
-  top_id uuid not null references public.clothing_items(id) on delete cascade,
-  bottom_id uuid not null references public.clothing_items(id) on delete cascade,
-  shoes_id uuid not null references public.clothing_items(id) on delete cascade,
+  top_id uuid references public.clothing_items(id) on delete cascade,
+  bottom_id uuid references public.clothing_items(id) on delete cascade,
+  dress_id uuid references public.clothing_items(id) on delete cascade,
+  outerwear_id uuid references public.clothing_items(id) on delete cascade,
+  shoes_id uuid references public.clothing_items(id) on delete cascade,
   accessory_ids uuid[] not null default '{}',
   preview_image_path text,
   date_modified timestamptz not null default now()

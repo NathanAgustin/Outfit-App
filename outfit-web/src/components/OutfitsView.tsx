@@ -8,7 +8,13 @@ import {
   resizeImageFile,
   uploadImage,
 } from "@/lib/storage";
-import { ClothingItem, SavedOutfit, displayName } from "@/lib/types";
+import {
+  ClothingItem,
+  OUTFIT_SLOT_CATEGORIES,
+  SavedOutfit,
+  countOutfitPieces,
+  displayName,
+} from "@/lib/types";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -16,9 +22,22 @@ function itemsForCategory(items: ClothingItem[], category: ClothingItem["categor
   return items.filter((item) => item.category === category);
 }
 
-function safeIndex(index: number, count: number) {
-  if (count === 0) return 0;
-  return ((index % count) + count) % count;
+/** Index 0 = None, 1..n = clothing items */
+function safeSlotIndex(index: number, itemCount: number) {
+  const total = itemCount + 1;
+  return ((index % total) + total) % total;
+}
+
+function selectedFromSlot(items: ClothingItem[], index: number): ClothingItem | null {
+  const safe = safeSlotIndex(index, items.length);
+  if (safe === 0) return null;
+  return items[safe - 1] ?? null;
+}
+
+function indexForItemOrNone(items: ClothingItem[], itemId: string | null): number {
+  if (!itemId) return 0;
+  const idx = items.findIndex((item) => item.id === itemId);
+  return idx < 0 ? 0 : idx + 1;
 }
 
 export function OutfitsView() {
@@ -30,6 +49,8 @@ export function OutfitsView() {
 
   const [topIndex, setTopIndex] = useState(0);
   const [bottomIndex, setBottomIndex] = useState(0);
+  const [dressIndex, setDressIndex] = useState(0);
+  const [outerwearIndex, setOuterwearIndex] = useState(0);
   const [shoesIndex, setShoesIndex] = useState(0);
   const [accessoryIds, setAccessoryIds] = useState<string[]>([]);
   const [loadedOutfitId, setLoadedOutfitId] = useState<string | null>(null);
@@ -37,13 +58,26 @@ export function OutfitsView() {
 
   const tops = useMemo(() => itemsForCategory(items, "tops"), [items]);
   const bottoms = useMemo(() => itemsForCategory(items, "bottoms"), [items]);
+  const dresses = useMemo(() => itemsForCategory(items, "dresses"), [items]);
+  const outerwear = useMemo(() => itemsForCategory(items, "outerwear"), [items]);
   const shoes = useMemo(() => itemsForCategory(items, "shoes"), [items]);
   const accessories = useMemo(() => itemsForCategory(items, "accessories"), [items]);
 
-  const selectedTop = tops[safeIndex(topIndex, tops.length)] ?? null;
-  const selectedBottom = bottoms[safeIndex(bottomIndex, bottoms.length)] ?? null;
-  const selectedShoes = shoes[safeIndex(shoesIndex, shoes.length)] ?? null;
-  const canBuildOutfit = Boolean(selectedTop && selectedBottom && selectedShoes);
+  const selectedTop = selectedFromSlot(tops, topIndex);
+  const selectedBottom = selectedFromSlot(bottoms, bottomIndex);
+  const selectedDress = selectedFromSlot(dresses, dressIndex);
+  const selectedOuterwear = selectedFromSlot(outerwear, outerwearIndex);
+  const selectedShoes = selectedFromSlot(shoes, shoesIndex);
+
+  const pieceCount = countOutfitPieces({
+    topId: selectedTop?.id ?? null,
+    bottomId: selectedBottom?.id ?? null,
+    dressId: selectedDress?.id ?? null,
+    outerwearId: selectedOuterwear?.id ?? null,
+    shoesId: selectedShoes?.id ?? null,
+    accessoryIds,
+  });
+  const canSaveOutfit = pieceCount >= 2;
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -53,10 +87,10 @@ export function OutfitsView() {
     ]);
 
     if (itemsRes.error) setError(friendlySupabaseError(itemsRes.error.message));
-    else setItems(itemsRes.data ?? []);
+    else setItems((itemsRes.data as ClothingItem[]) ?? []);
 
     if (outfitsRes.error) setError(friendlySupabaseError(outfitsRes.error.message));
-    else setOutfits(outfitsRes.data ?? []);
+    else setOutfits((outfitsRes.data as SavedOutfit[]) ?? []);
 
     setLoading(false);
   }, [supabase]);
@@ -66,11 +100,13 @@ export function OutfitsView() {
   }, [loadData]);
 
   useEffect(() => {
-    setTopIndex((i) => safeIndex(i, tops.length));
-    setBottomIndex((i) => safeIndex(i, bottoms.length));
-    setShoesIndex((i) => safeIndex(i, shoes.length));
+    setTopIndex((i) => safeSlotIndex(i, tops.length));
+    setBottomIndex((i) => safeSlotIndex(i, bottoms.length));
+    setDressIndex((i) => safeSlotIndex(i, dresses.length));
+    setOuterwearIndex((i) => safeSlotIndex(i, outerwear.length));
+    setShoesIndex((i) => safeSlotIndex(i, shoes.length));
     setAccessoryIds((ids) => ids.filter((id) => accessories.some((a) => a.id === id)));
-  }, [tops.length, bottoms.length, shoes.length, accessories]);
+  }, [tops.length, bottoms.length, dresses.length, outerwear.length, shoes.length, accessories]);
 
   function toggleAccessory(id: string) {
     setAccessoryIds((current) =>
@@ -78,8 +114,19 @@ export function OutfitsView() {
     );
   }
 
+  function currentSelectionPayload() {
+    return {
+      top_id: selectedTop?.id ?? null,
+      bottom_id: selectedBottom?.id ?? null,
+      dress_id: selectedDress?.id ?? null,
+      outerwear_id: selectedOuterwear?.id ?? null,
+      shoes_id: selectedShoes?.id ?? null,
+      accessory_ids: accessoryIds,
+    };
+  }
+
   async function saveOutfit() {
-    if (!canBuildOutfit || !newOutfitName.trim()) return;
+    if (!canSaveOutfit || !newOutfitName.trim()) return;
     setError(null);
 
     const {
@@ -92,10 +139,7 @@ export function OutfitsView() {
       .insert({
         user_id: user.id,
         name: newOutfitName.trim(),
-        top_id: selectedTop!.id,
-        bottom_id: selectedBottom!.id,
-        shoes_id: selectedShoes!.id,
-        accessory_ids: accessoryIds,
+        ...currentSelectionPayload(),
       })
       .select("*")
       .single();
@@ -111,16 +155,13 @@ export function OutfitsView() {
   }
 
   async function updateLoadedOutfit() {
-    if (!loadedOutfitId || !canBuildOutfit) return;
+    if (!loadedOutfitId || !canSaveOutfit) return;
     setError(null);
 
     const { error: updateError } = await supabase
       .from("saved_outfits")
       .update({
-        top_id: selectedTop!.id,
-        bottom_id: selectedBottom!.id,
-        shoes_id: selectedShoes!.id,
-        accessory_ids: accessoryIds,
+        ...currentSelectionPayload(),
         date_modified: new Date().toISOString(),
       })
       .eq("id", loadedOutfitId);
@@ -130,17 +171,24 @@ export function OutfitsView() {
   }
 
   function loadOutfit(outfit: SavedOutfit) {
-    const topIdx = tops.findIndex((i) => i.id === outfit.top_id);
-    const bottomIdx = bottoms.findIndex((i) => i.id === outfit.bottom_id);
-    const shoesIdx = shoes.findIndex((i) => i.id === outfit.shoes_id);
-    if (topIdx < 0 || bottomIdx < 0 || shoesIdx < 0) {
+    const missing =
+      (outfit.top_id && !tops.some((i) => i.id === outfit.top_id)) ||
+      (outfit.bottom_id && !bottoms.some((i) => i.id === outfit.bottom_id)) ||
+      (outfit.dress_id && !dresses.some((i) => i.id === outfit.dress_id)) ||
+      (outfit.outerwear_id && !outerwear.some((i) => i.id === outfit.outerwear_id)) ||
+      (outfit.shoes_id && !shoes.some((i) => i.id === outfit.shoes_id));
+
+    if (missing) {
       setError("Some items in this outfit are no longer available.");
       return;
     }
-    setTopIndex(topIdx);
-    setBottomIndex(bottomIdx);
-    setShoesIndex(shoesIdx);
-    setAccessoryIds(outfit.accessory_ids.filter((id) => accessories.some((a) => a.id === id)));
+
+    setTopIndex(indexForItemOrNone(tops, outfit.top_id));
+    setBottomIndex(indexForItemOrNone(bottoms, outfit.bottom_id));
+    setDressIndex(indexForItemOrNone(dresses, outfit.dress_id));
+    setOuterwearIndex(indexForItemOrNone(outerwear, outfit.outerwear_id));
+    setShoesIndex(indexForItemOrNone(shoes, outfit.shoes_id));
+    setAccessoryIds((outfit.accessory_ids ?? []).filter((id) => accessories.some((a) => a.id === id)));
     setLoadedOutfitId(outfit.id);
   }
 
@@ -216,9 +264,73 @@ export function OutfitsView() {
     if (outfit.preview_image_path) {
       return publicImageUrl(supabase, outfit.preview_image_path);
     }
-    const top = items.find((i) => i.id === outfit.top_id);
-    return top ? publicImageUrl(supabase, top.image_path) : null;
+    const fallbackId =
+      outfit.top_id ||
+      outfit.dress_id ||
+      outfit.outerwear_id ||
+      outfit.bottom_id ||
+      outfit.shoes_id ||
+      outfit.accessory_ids?.[0];
+    const piece = fallbackId ? items.find((i) => i.id === fallbackId) : null;
+    return piece ? publicImageUrl(supabase, piece.image_path) : null;
   }
+
+  function outfitSummary(outfit: SavedOutfit) {
+    const parts: string[] = [];
+    for (const slot of OUTFIT_SLOT_CATEGORIES) {
+      const id = outfit[slot.outfitKey];
+      if (!id) continue;
+      const item = items.find((i) => i.id === id);
+      parts.push(`${slot.label}: ${item ? displayName(item.name) : "Missing"}`);
+    }
+    if ((outfit.accessory_ids ?? []).length > 0) {
+      parts.push(`${outfit.accessory_ids.length} accessories`);
+    }
+    return parts.join(" · ") || "Empty outfit";
+  }
+
+  const slotControls = [
+    {
+      label: "Top",
+      items: tops,
+      index: topIndex,
+      selected: selectedTop,
+      onPrev: () => setTopIndex((i) => safeSlotIndex(i - 1, tops.length)),
+      onNext: () => setTopIndex((i) => safeSlotIndex(i + 1, tops.length)),
+    },
+    {
+      label: "Bottom",
+      items: bottoms,
+      index: bottomIndex,
+      selected: selectedBottom,
+      onPrev: () => setBottomIndex((i) => safeSlotIndex(i - 1, bottoms.length)),
+      onNext: () => setBottomIndex((i) => safeSlotIndex(i + 1, bottoms.length)),
+    },
+    {
+      label: "Dress",
+      items: dresses,
+      index: dressIndex,
+      selected: selectedDress,
+      onPrev: () => setDressIndex((i) => safeSlotIndex(i - 1, dresses.length)),
+      onNext: () => setDressIndex((i) => safeSlotIndex(i + 1, dresses.length)),
+    },
+    {
+      label: "Outerwear",
+      items: outerwear,
+      index: outerwearIndex,
+      selected: selectedOuterwear,
+      onPrev: () => setOuterwearIndex((i) => safeSlotIndex(i - 1, outerwear.length)),
+      onNext: () => setOuterwearIndex((i) => safeSlotIndex(i + 1, outerwear.length)),
+    },
+    {
+      label: "Shoes",
+      items: shoes,
+      index: shoesIndex,
+      selected: selectedShoes,
+      onPrev: () => setShoesIndex((i) => safeSlotIndex(i - 1, shoes.length)),
+      onNext: () => setShoesIndex((i) => safeSlotIndex(i + 1, shoes.length)),
+    },
+  ];
 
   if (loading) {
     return <p className="text-sm text-zinc-500">Loading browse...</p>;
@@ -235,41 +347,18 @@ export function OutfitsView() {
       )}
 
       <section className="space-y-3">
-        {!canBuildOutfit ? (
-          <p className="rounded-xl bg-white p-4 text-sm text-zinc-600 shadow-sm ring-1 ring-zinc-200">
-            Add at least one top, bottom, and shoes in Wardrobe to preview a full outfit.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            <PreviewCard
-              label="Top"
-              item={selectedTop!}
-              index={safeIndex(topIndex, tops.length)}
-              count={tops.length}
-              onPrev={() => setTopIndex((i) => safeIndex(i - 1, tops.length))}
-              onNext={() => setTopIndex((i) => safeIndex(i + 1, tops.length))}
-              supabase={supabase}
-            />
-            <PreviewCard
-              label="Bottom"
-              item={selectedBottom!}
-              index={safeIndex(bottomIndex, bottoms.length)}
-              count={bottoms.length}
-              onPrev={() => setBottomIndex((i) => safeIndex(i - 1, bottoms.length))}
-              onNext={() => setBottomIndex((i) => safeIndex(i + 1, bottoms.length))}
-              supabase={supabase}
-            />
-            <PreviewCard
-              label="Shoes"
-              item={selectedShoes!}
-              index={safeIndex(shoesIndex, shoes.length)}
-              count={shoes.length}
-              onPrev={() => setShoesIndex((i) => safeIndex(i - 1, shoes.length))}
-              onNext={() => setShoesIndex((i) => safeIndex(i + 1, shoes.length))}
-              supabase={supabase}
-            />
-          </div>
-        )}
+        {slotControls.map((slot) => (
+          <PreviewCard
+            key={slot.label}
+            label={slot.label}
+            item={slot.selected}
+            index={safeSlotIndex(slot.index, slot.items.length)}
+            count={slot.items.length + 1}
+            onPrev={slot.onPrev}
+            onNext={slot.onNext}
+            supabase={supabase}
+          />
+        ))}
       </section>
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-4">
@@ -307,6 +396,7 @@ export function OutfitsView() {
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-4">
         <h2 className="text-sm font-semibold text-zinc-800">Saved outfits</h2>
+        <p className="mt-1 text-xs text-zinc-500">Select at least 2 pieces to save.</p>
         <div className="mt-3 flex gap-2">
           <input
             type="text"
@@ -317,7 +407,7 @@ export function OutfitsView() {
           />
           <button
             type="button"
-            disabled={!canBuildOutfit || !newOutfitName.trim()}
+            disabled={!canSaveOutfit || !newOutfitName.trim()}
             onClick={saveOutfit}
             className="shrink-0 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
@@ -328,9 +418,9 @@ export function OutfitsView() {
         {loadedOutfitId && (
           <button
             type="button"
-            disabled={!canBuildOutfit}
+            disabled={!canSaveOutfit}
             onClick={updateLoadedOutfit}
-            className="mt-2 w-full rounded-xl border border-zinc-300 py-2 text-sm font-medium"
+            className="mt-2 w-full rounded-xl border border-zinc-300 py-2 text-sm font-medium disabled:opacity-50"
           >
             Update loaded outfit
           </button>
@@ -341,16 +431,13 @@ export function OutfitsView() {
         ) : (
           <ul className="mt-4 space-y-3">
             {outfits.map((outfit) => (
-              <li
-                key={outfit.id}
-                className="rounded-xl border border-zinc-200 p-3"
-              >
+              <li key={outfit.id} className="rounded-xl border border-zinc-200 p-3">
                 <div className="flex gap-3">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={previewForOutfit(outfit) ?? ""}
                     alt={outfit.name}
-                    className="h-16 w-16 shrink-0 rounded-lg object-cover bg-zinc-100"
+                    className="h-16 w-16 shrink-0 rounded-lg object-cover bg-white"
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
@@ -361,9 +448,7 @@ export function OutfitsView() {
                         </span>
                       )}
                     </div>
-                    <p className="mt-1 line-clamp-2 text-xs text-zinc-500">
-                      Top: {displayName(items.find((i) => i.id === outfit.top_id)?.name ?? "")}
-                    </p>
+                    <p className="mt-1 line-clamp-2 text-xs text-zinc-500">{outfitSummary(outfit)}</p>
                   </div>
                 </div>
 
@@ -382,16 +467,14 @@ export function OutfitsView() {
                   >
                     Rename
                   </button>
-                  <PreviewPhotoButton
-                    onPick={(file) => setOutfitPreview(outfit, file)}
-                  />
+                  <PreviewPhotoButton onPick={(file) => setOutfitPreview(outfit, file)} />
                   {outfit.preview_image_path && (
                     <button
                       type="button"
                       onClick={() => resetOutfitPreview(outfit)}
                       className="rounded-lg border px-3 py-1.5 text-xs"
                     >
-                      Use top image
+                      Use default image
                     </button>
                   )}
                   <button
@@ -448,7 +531,7 @@ function PreviewCard({
   supabase,
 }: {
   label: string;
-  item: ClothingItem;
+  item: ClothingItem | null;
   index: number;
   count: number;
   onPrev: () => void;
@@ -460,7 +543,7 @@ function PreviewCard({
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">{label}</p>
         <p className="text-xs text-zinc-500">
-          {index + 1} of {count}
+          {index === 0 ? "None" : `${index} of ${count - 1}`}
         </p>
       </div>
 
@@ -475,17 +558,25 @@ function PreviewCard({
         </button>
 
         <div className="min-w-0 flex-1">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={publicImageUrl(supabase, item.image_path) ?? ""}
-            alt={displayName(item.name)}
-            className="h-44 w-full rounded-xl object-contain bg-zinc-50"
-          />
-          {item.name.trim() ? (
-            <p className="mt-2 truncate text-center text-sm font-medium text-zinc-800">
-              {item.name.trim()}
-            </p>
-          ) : null}
+          {item ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={publicImageUrl(supabase, item.image_path) ?? ""}
+                alt={displayName(item.name)}
+                className="h-44 w-full rounded-xl object-contain bg-white"
+              />
+              {item.name.trim() ? (
+                <p className="mt-2 truncate text-center text-sm font-medium text-zinc-800">
+                  {item.name.trim()}
+                </p>
+              ) : null}
+            </>
+          ) : (
+            <div className="flex h-44 w-full items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-white">
+              <p className="text-sm text-zinc-400">None</p>
+            </div>
+          )}
         </div>
 
         <button
