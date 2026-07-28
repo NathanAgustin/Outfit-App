@@ -235,44 +235,42 @@ export function OutfitsView() {
       )}
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-zinc-800">Outfit preview</h2>
         {!canBuildOutfit ? (
           <p className="rounded-xl bg-white p-4 text-sm text-zinc-600 shadow-sm ring-1 ring-zinc-200">
             Add at least one top, bottom, and shoes in Wardrobe to preview a full outfit.
           </p>
         ) : (
           <div className="space-y-3">
-            <PreviewCard label="Top" item={selectedTop} supabase={supabase} />
-            <PreviewCard label="Bottom" item={selectedBottom} supabase={supabase} />
-            <PreviewCard label="Shoes" item={selectedShoes} supabase={supabase} />
+            <PreviewCard
+              label="Top"
+              item={selectedTop!}
+              index={safeIndex(topIndex, tops.length)}
+              count={tops.length}
+              onPrev={() => setTopIndex((i) => safeIndex(i - 1, tops.length))}
+              onNext={() => setTopIndex((i) => safeIndex(i + 1, tops.length))}
+              supabase={supabase}
+            />
+            <PreviewCard
+              label="Bottom"
+              item={selectedBottom!}
+              index={safeIndex(bottomIndex, bottoms.length)}
+              count={bottoms.length}
+              onPrev={() => setBottomIndex((i) => safeIndex(i - 1, bottoms.length))}
+              onNext={() => setBottomIndex((i) => safeIndex(i + 1, bottoms.length))}
+              supabase={supabase}
+            />
+            <PreviewCard
+              label="Shoes"
+              item={selectedShoes!}
+              index={safeIndex(shoesIndex, shoes.length)}
+              count={shoes.length}
+              onPrev={() => setShoesIndex((i) => safeIndex(i - 1, shoes.length))}
+              onNext={() => setShoesIndex((i) => safeIndex(i + 1, shoes.length))}
+              supabase={supabase}
+            />
           </div>
         )}
       </section>
-
-      <SelectorRow
-        title="Top"
-        items={tops}
-        index={topIndex}
-        onPrev={() => setTopIndex((i) => safeIndex(i - 1, tops.length))}
-        onNext={() => setTopIndex((i) => safeIndex(i + 1, tops.length))}
-        supabase={supabase}
-      />
-      <SelectorRow
-        title="Bottom"
-        items={bottoms}
-        index={bottomIndex}
-        onPrev={() => setBottomIndex((i) => safeIndex(i - 1, bottoms.length))}
-        onNext={() => setBottomIndex((i) => safeIndex(i + 1, bottoms.length))}
-        supabase={supabase}
-      />
-      <SelectorRow
-        title="Shoes"
-        items={shoes}
-        index={shoesIndex}
-        onPrev={() => setShoesIndex((i) => safeIndex(i - 1, shoes.length))}
-        onNext={() => setShoesIndex((i) => safeIndex(i + 1, shoes.length))}
-        supabase={supabase}
-      />
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-4">
         <h2 className="text-sm font-semibold text-zinc-800">Accessories</h2>
@@ -443,72 +441,62 @@ function PreviewPhotoButton({ onPick }: { onPick: (file: File) => void }) {
 function PreviewCard({
   label,
   item,
-  supabase,
-}: {
-  label: string;
-  item: ClothingItem;
-  supabase: SupabaseClient;
-}) {
-  return (
-    <article className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
-      <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">{label}</p>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={publicImageUrl(supabase, item.image_path) ?? ""}
-        alt={displayName(item.name)}
-        className="mt-2 h-40 w-full rounded-xl object-contain bg-zinc-50"
-      />
-      <p className="mt-2 truncate text-sm font-medium text-zinc-800">{displayName(item.name)}</p>
-    </article>
-  );
-}
-
-function SelectorRow({
-  title,
-  items,
   index,
+  count,
   onPrev,
   onNext,
   supabase,
 }: {
-  title: string;
-  items: ClothingItem[];
+  label: string;
+  item: ClothingItem;
   index: number;
+  count: number;
   onPrev: () => void;
   onNext: () => void;
   supabase: SupabaseClient;
 }) {
-  const item = items[safeIndex(index, items.length)];
-
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white p-4">
-      <h2 className="text-sm font-semibold text-zinc-800">{title}</h2>
-      {items.length === 0 ? (
-        <p className="mt-2 text-sm text-zinc-500">No {title.toLowerCase()} items available.</p>
-      ) : (
-        <div className="mt-3 flex items-center gap-3">
-          <button type="button" onClick={onPrev} className="rounded-lg border px-3 py-2 text-sm">
-            ‹
-          </button>
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={publicImageUrl(supabase, item.image_path) ?? ""}
-              alt=""
-              className="h-14 w-14 shrink-0 rounded-lg object-cover"
-            />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{displayName(item.name)}</p>
-              <p className="text-xs text-zinc-500">
-                {index + 1} of {items.length}
-              </p>
-            </div>
-          </div>
-          <button type="button" onClick={onNext} className="rounded-lg border px-3 py-2 text-sm">
-            ›
-          </button>
+    <article className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">{label}</p>
+        <p className="text-xs text-zinc-500">
+          {index + 1} of {count}
+        </p>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onPrev}
+          className="shrink-0 rounded-lg border border-zinc-200 px-3 py-8 text-lg leading-none text-zinc-700"
+          aria-label={`Previous ${label}`}
+        >
+          ‹
+        </button>
+
+        <div className="min-w-0 flex-1">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={publicImageUrl(supabase, item.image_path) ?? ""}
+            alt={displayName(item.name)}
+            className="h-44 w-full rounded-xl object-contain bg-zinc-50"
+          />
+          {item.name.trim() ? (
+            <p className="mt-2 truncate text-center text-sm font-medium text-zinc-800">
+              {item.name.trim()}
+            </p>
+          ) : null}
         </div>
-      )}
-    </section>
+
+        <button
+          type="button"
+          onClick={onNext}
+          className="shrink-0 rounded-lg border border-zinc-200 px-3 py-8 text-lg leading-none text-zinc-700"
+          aria-label={`Next ${label}`}
+        >
+          ›
+        </button>
+      </div>
+    </article>
   );
 }
