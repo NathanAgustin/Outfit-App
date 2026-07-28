@@ -1,7 +1,7 @@
 {
-  "name": "Outfit App",
-  "short_name": "Outfits",
-  "description": "Manage your closet and outfits online",
+  "name": "My Wardrobe",
+  "short_name": "Wardrobe",
+  "description": "Manage your wardrobe and outfits online",
   "start_url": "/closet",
   "display": "standalone",
   "background_color": "#fafafa",

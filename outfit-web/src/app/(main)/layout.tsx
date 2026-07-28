@@ -33,7 +33,7 @@ export default async function MainLayout({
       <header className="sticky top-0 z-10 border-b border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs uppercase tracking-wide text-zinc-500">Outfit App</p>
+            <p className="text-xs uppercase tracking-wide text-zinc-500">My Wardrobe</p>
             <p className="text-sm font-medium text-zinc-800 truncate max-w-[220px]">
               {user.email}
             </p>
@@ -48,7 +48,7 @@ export default async function MainLayout({
           </form>
         </div>
       </header>
-      <main className="flex-1 px-4 pb-24 pt-4">{children}</main>
+      <main className="flex-1 px-4 pb-32 pt-4">{children}</main>
       <BottomNav />
     </div>
   );

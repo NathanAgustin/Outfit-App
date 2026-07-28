@@ -62,9 +62,9 @@ export default function LoginPage() {
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center px-6 py-10">
       <div className="mb-8 text-center">
-        <h1 className="text-2xl font-bold text-zinc-900">Outfit App</h1>
+        <h1 className="text-2xl font-bold text-zinc-900">My Wardrobe</h1>
         <p className="mt-2 text-sm text-zinc-600">
-          Manage your closet and outfits online. Sign in to keep your data synced.
+          Sign in to keep your wardrobe synced.
         </p>
       </div>
 

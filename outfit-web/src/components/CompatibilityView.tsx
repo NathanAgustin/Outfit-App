@@ -85,16 +85,13 @@ export function CompatibilityView() {
   }, [selectedItem?.id]);
 
   if (loading) {
-    return <p className="text-sm text-zinc-500">Loading compatibility...</p>;
+    return <p className="text-sm text-zinc-500">Loading style...</p>;
   }
 
   return (
     <div className="space-y-6">
       <section>
-        <h1 className="text-xl font-bold text-zinc-900">Compatibility</h1>
-        <p className="mt-1 text-sm text-zinc-600">
-          Pick a piece and browse what you&apos;ve already worn with it in saved outfits.
-        </p>
+        <h1 className="text-xl font-bold text-zinc-900">Style</h1>
       </section>
 
       {error && (
@@ -125,7 +122,7 @@ export function CompatibilityView() {
         <h2 className="text-sm font-semibold text-zinc-800">Selected {FOCUS_OPTIONS.find((o) => o.value === focus)?.label}</h2>
         {focusItems.length === 0 ? (
           <p className="mt-2 text-sm text-zinc-500">
-            No {focus} in your closet yet. Add some in Closet, then save outfits.
+            No {focus} in your wardrobe yet. Add some in Wardrobe, then save outfits.
           </p>
         ) : (
           <ItemCarousel
@@ -141,7 +138,7 @@ export function CompatibilityView() {
 
       {selectedItem && outfits.length === 0 && (
         <p className="rounded-xl bg-white p-4 text-sm text-zinc-600 shadow-sm ring-1 ring-zinc-200">
-          No saved outfits yet. Save outfits in Outfit Manager so compatibility can find matches.
+          No saved outfits yet. Save outfits in Browse so style matches can appear.
         </p>
       )}
 

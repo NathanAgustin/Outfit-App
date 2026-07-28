@@ -132,8 +132,7 @@ export function ClosetView() {
   return (
     <div className="space-y-6">
       <section>
-        <h1 className="text-xl font-bold text-zinc-900">Closet</h1>
-        <p className="mt-1 text-sm text-zinc-600">Add clothing items to build outfits.</p>
+        <h1 className="text-xl font-bold text-zinc-900">Wardrobe</h1>
       </section>
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
@@ -194,7 +193,7 @@ export function ClosetView() {
       )}
 
       {loading ? (
-        <p className="text-sm text-zinc-500">Loading closet...</p>
+        <p className="text-sm text-zinc-500">Loading wardrobe...</p>
       ) : items.length === 0 ? (
         <p className="text-sm text-zinc-500">No items yet. Add your first clothing item above.</p>
       ) : (

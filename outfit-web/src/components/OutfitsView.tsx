@@ -221,14 +221,13 @@ export function OutfitsView() {
   }
 
   if (loading) {
-    return <p className="text-sm text-zinc-500">Loading outfit manager...</p>;
+    return <p className="text-sm text-zinc-500">Loading browse...</p>;
   }
 
   return (
     <div className="space-y-6">
       <section>
-        <h1 className="text-xl font-bold text-zinc-900">Outfit Manager</h1>
-        <p className="mt-1 text-sm text-zinc-600">Build outfits and save them to your account.</p>
+        <h1 className="text-xl font-bold text-zinc-900">Browse</h1>
       </section>
 
       {error && (
@@ -239,7 +238,7 @@ export function OutfitsView() {
         <h2 className="text-sm font-semibold text-zinc-800">Outfit preview</h2>
         {!canBuildOutfit ? (
           <p className="rounded-xl bg-white p-4 text-sm text-zinc-600 shadow-sm ring-1 ring-zinc-200">
-            Add at least one top, bottom, and shoes in Closet to preview a full outfit.
+            Add at least one top, bottom, and shoes in Wardrobe to preview a full outfit.
           </p>
         ) : (
           <div className="space-y-3">
