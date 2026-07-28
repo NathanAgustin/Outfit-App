@@ -1,5 +1,7 @@
 "use client";
 
+import { useCategoryOrder } from "@/components/CategoryOrderProvider";
+import { CategoryDragHint, SortableCategoryList } from "@/components/SortableCategoryList";
 import { friendlySupabaseError } from "@/lib/supabase/errors";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -9,6 +11,7 @@ import {
   uploadImage,
   deleteImage,
 } from "@/lib/storage";
+import { categoryLabel } from "@/lib/categoryOrder";
 import {
   CLOTHING_CATEGORIES,
   ClothingCategory,
@@ -18,6 +21,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 export function ClosetView() {
   const supabase = useMemo(() => createClient(), []);
+  const { order } = useCategoryOrder();
   const [items, setItems] = useState<ClothingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -195,55 +199,65 @@ export function ClosetView() {
       ) : items.length === 0 ? (
         <p className="text-sm text-zinc-500">No items yet. Add your first clothing item above.</p>
       ) : (
-        CLOTHING_CATEGORIES.map((cat) => {
-          const categoryItems = items.filter((item) => item.category === cat.value);
-          if (categoryItems.length === 0) return null;
+        <>
+          <p className="text-xs text-zinc-500">Hold “Hold to move” on a category, then drag to reorder.</p>
+          <SortableCategoryList
+            ids={order.filter((category) => items.some((item) => item.category === category))}
+          >
+            {(category, drag) => {
+              const categoryItems = items.filter((item) => item.category === category);
+              const label = categoryLabel(category);
 
-          return (
-            <section key={cat.value}>
-              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">
-                {cat.label}
-              </h2>
-              <ul className="space-y-2">
-                {categoryItems.map((item) => (
-                  <li
-                    key={item.id}
-                    className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-3"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={publicImageUrl(supabase, item.image_path) ?? ""}
-                      alt={item.name.trim() || "Clothing item"}
-                      className="h-14 w-14 shrink-0 rounded-lg object-cover bg-zinc-100"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-zinc-900">
-                        {item.name.trim()}
-                      </p>
-                      <p className="text-xs text-zinc-500">{cat.label}</p>
-                    </div>
-                    <div className="flex shrink-0 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setEditing(item)}
-                        className="rounded-lg border border-zinc-200 px-2 py-1 text-xs"
+              return (
+                <section className="rounded-2xl border border-zinc-200 bg-white p-3">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+                      {label}
+                    </h2>
+                    <CategoryDragHint {...drag} />
+                  </div>
+                  <ul className="space-y-2">
+                    {categoryItems.map((item) => (
+                      <li
+                        key={item.id}
+                        className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-3"
                       >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(item)}
-                        className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-600"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          );
-        })
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={publicImageUrl(supabase, item.image_path) ?? ""}
+                          alt={item.name.trim() || "Clothing item"}
+                          className="h-14 w-14 shrink-0 rounded-lg object-cover bg-zinc-100"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-zinc-900">
+                            {item.name.trim()}
+                          </p>
+                          <p className="text-xs text-zinc-500">{label}</p>
+                        </div>
+                        <div className="flex shrink-0 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setEditing(item)}
+                            className="rounded-lg border border-zinc-200 px-2 py-1 text-xs"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(item)}
+                            className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-600"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              );
+            }}
+          </SortableCategoryList>
+        </>
       )}
 
       {editing && (

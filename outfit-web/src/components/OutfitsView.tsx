@@ -1,5 +1,7 @@
 "use client";
 
+import { useCategoryOrder } from "@/components/CategoryOrderProvider";
+import { CategoryDragHint, SortableCategoryList } from "@/components/SortableCategoryList";
 import { friendlySupabaseError } from "@/lib/supabase/errors";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -42,6 +44,7 @@ function indexForItemOrNone(items: ClothingItem[], itemId: string | null): numbe
 
 export function OutfitsView() {
   const supabase = useMemo(() => createClient(), []);
+  const { order } = useCategoryOrder();
   const [items, setItems] = useState<ClothingItem[]>([]);
   const [outfits, setOutfits] = useState<SavedOutfit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -289,48 +292,66 @@ export function OutfitsView() {
     return parts.join(" · ") || "Empty outfit";
   }
 
-  const slotControls = [
-    {
-      label: "Top",
-      items: tops,
-      index: topIndex,
-      selected: selectedTop,
-      onPrev: () => setTopIndex((i) => safeSlotIndex(i - 1, tops.length)),
-      onNext: () => setTopIndex((i) => safeSlotIndex(i + 1, tops.length)),
-    },
-    {
-      label: "Bottom",
-      items: bottoms,
-      index: bottomIndex,
-      selected: selectedBottom,
-      onPrev: () => setBottomIndex((i) => safeSlotIndex(i - 1, bottoms.length)),
-      onNext: () => setBottomIndex((i) => safeSlotIndex(i + 1, bottoms.length)),
-    },
-    {
-      label: "Dress",
-      items: dresses,
-      index: dressIndex,
-      selected: selectedDress,
-      onPrev: () => setDressIndex((i) => safeSlotIndex(i - 1, dresses.length)),
-      onNext: () => setDressIndex((i) => safeSlotIndex(i + 1, dresses.length)),
-    },
-    {
-      label: "Outerwear",
-      items: outerwear,
-      index: outerwearIndex,
-      selected: selectedOuterwear,
-      onPrev: () => setOuterwearIndex((i) => safeSlotIndex(i - 1, outerwear.length)),
-      onNext: () => setOuterwearIndex((i) => safeSlotIndex(i + 1, outerwear.length)),
-    },
-    {
-      label: "Shoes",
-      items: shoes,
-      index: shoesIndex,
-      selected: selectedShoes,
-      onPrev: () => setShoesIndex((i) => safeSlotIndex(i - 1, shoes.length)),
-      onNext: () => setShoesIndex((i) => safeSlotIndex(i + 1, shoes.length)),
-    },
-  ];
+  const slotByCategory = useMemo(() => {
+    return {
+      tops: {
+        label: "Top",
+        items: tops,
+        index: topIndex,
+        selected: selectedTop,
+        onPrev: () => setTopIndex((i) => safeSlotIndex(i - 1, tops.length)),
+        onNext: () => setTopIndex((i) => safeSlotIndex(i + 1, tops.length)),
+      },
+      bottoms: {
+        label: "Bottom",
+        items: bottoms,
+        index: bottomIndex,
+        selected: selectedBottom,
+        onPrev: () => setBottomIndex((i) => safeSlotIndex(i - 1, bottoms.length)),
+        onNext: () => setBottomIndex((i) => safeSlotIndex(i + 1, bottoms.length)),
+      },
+      dresses: {
+        label: "Dress",
+        items: dresses,
+        index: dressIndex,
+        selected: selectedDress,
+        onPrev: () => setDressIndex((i) => safeSlotIndex(i - 1, dresses.length)),
+        onNext: () => setDressIndex((i) => safeSlotIndex(i + 1, dresses.length)),
+      },
+      outerwear: {
+        label: "Outerwear",
+        items: outerwear,
+        index: outerwearIndex,
+        selected: selectedOuterwear,
+        onPrev: () => setOuterwearIndex((i) => safeSlotIndex(i - 1, outerwear.length)),
+        onNext: () => setOuterwearIndex((i) => safeSlotIndex(i + 1, outerwear.length)),
+      },
+      shoes: {
+        label: "Shoes",
+        items: shoes,
+        index: shoesIndex,
+        selected: selectedShoes,
+        onPrev: () => setShoesIndex((i) => safeSlotIndex(i - 1, shoes.length)),
+        onNext: () => setShoesIndex((i) => safeSlotIndex(i + 1, shoes.length)),
+      },
+    } as const;
+  }, [
+    tops,
+    bottoms,
+    dresses,
+    outerwear,
+    shoes,
+    topIndex,
+    bottomIndex,
+    dressIndex,
+    outerwearIndex,
+    shoesIndex,
+    selectedTop,
+    selectedBottom,
+    selectedDress,
+    selectedOuterwear,
+    selectedShoes,
+  ]);
 
   if (loading) {
     return <p className="text-sm text-zinc-500">Loading browse...</p>;
@@ -340,59 +361,74 @@ export function OutfitsView() {
     <div className="space-y-6">
       <section>
         <h1 className="text-xl font-bold text-zinc-900">Browse</h1>
+        <p className="mt-1 text-xs text-zinc-500">Hold “Hold to move” on a category, then drag to reorder.</p>
       </section>
 
       {error && (
         <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
       )}
 
-      <section className="space-y-3">
-        {slotControls.map((slot) => (
-          <PreviewCard
-            key={slot.label}
-            label={slot.label}
-            item={slot.selected}
-            index={safeSlotIndex(slot.index, slot.items.length)}
-            count={slot.items.length + 1}
-            onPrev={slot.onPrev}
-            onNext={slot.onNext}
-            supabase={supabase}
-          />
-        ))}
-      </section>
+      <SortableCategoryList ids={order}>
+        {(category, drag) => {
+          if (category === "accessories") {
+            return (
+              <section className="rounded-2xl border border-zinc-200 bg-white p-4">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <h2 className="text-sm font-semibold text-zinc-800">Accessories</h2>
+                  <CategoryDragHint {...drag} />
+                </div>
+                {accessories.length === 0 ? (
+                  <p className="mt-2 text-sm text-zinc-500">No accessories available yet.</p>
+                ) : (
+                  <ul className="mt-3 space-y-2">
+                    {accessories.map((item) => {
+                      const selected = accessoryIds.includes(item.id);
+                      return (
+                        <li key={item.id}>
+                          <button
+                            type="button"
+                            onClick={() => toggleAccessory(item.id)}
+                            className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left ${
+                              selected ? "border-zinc-900 bg-zinc-50" : "border-zinc-200"
+                            }`}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={publicImageUrl(supabase, item.image_path) ?? ""}
+                              alt=""
+                              className="h-10 w-10 rounded-lg object-cover"
+                            />
+                            <span className="flex-1 text-sm">{displayName(item.name)}</span>
+                            <span className="text-xs">{selected ? "✓" : ""}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </section>
+            );
+          }
 
-      <section className="rounded-2xl border border-zinc-200 bg-white p-4">
-        <h2 className="text-sm font-semibold text-zinc-800">Accessories</h2>
-        {accessories.length === 0 ? (
-          <p className="mt-2 text-sm text-zinc-500">No accessories available yet.</p>
-        ) : (
-          <ul className="mt-3 space-y-2">
-            {accessories.map((item) => {
-              const selected = accessoryIds.includes(item.id);
-              return (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    onClick={() => toggleAccessory(item.id)}
-                    className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left ${
-                      selected ? "border-zinc-900 bg-zinc-50" : "border-zinc-200"
-                    }`}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={publicImageUrl(supabase, item.image_path) ?? ""}
-                      alt=""
-                      className="h-10 w-10 rounded-lg object-cover"
-                    />
-                    <span className="flex-1 text-sm">{displayName(item.name)}</span>
-                    <span className="text-xs">{selected ? "✓" : ""}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+          const slot = slotByCategory[category];
+          return (
+            <div className="relative">
+              <div className="absolute right-3 top-3 z-10">
+                <CategoryDragHint {...drag} />
+              </div>
+              <PreviewCard
+                label={slot.label}
+                item={slot.selected}
+                index={safeSlotIndex(slot.index, slot.items.length)}
+                count={slot.items.length + 1}
+                onPrev={slot.onPrev}
+                onNext={slot.onNext}
+                supabase={supabase}
+              />
+            </div>
+          );
+        }}
+      </SortableCategoryList>
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-4">
         <h2 className="text-sm font-semibold text-zinc-800">Saved outfits</h2>
