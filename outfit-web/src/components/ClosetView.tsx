@@ -136,8 +136,6 @@ export function ClosetView() {
       </section>
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-zinc-800">Add clothing item</h2>
-
         <label className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-6 text-center">
           <span className="text-sm font-medium text-zinc-700">Add photo</span>
           <span className="mt-1 text-xs text-zinc-500">Camera or photo library</span>
@@ -160,7 +158,7 @@ export function ClosetView() {
 
         <input
           type="text"
-          placeholder="Item name (optional)"
+          placeholder="Name (Optional)"
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="mt-3 w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm"
@@ -184,7 +182,7 @@ export function ClosetView() {
           onClick={handleAddItem}
           className="mt-4 w-full rounded-xl bg-zinc-900 py-3 text-sm font-semibold text-white disabled:opacity-50"
         >
-          {uploading ? "Uploading..." : "Add item"}
+          {uploading ? "Uploading..." : "Add Item"}
         </button>
       </section>
 
