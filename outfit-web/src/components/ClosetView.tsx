@@ -153,8 +153,8 @@ export function ClosetView() {
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
         <label className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-6 text-center">
-          <span className="text-sm font-medium text-zinc-700">Add photo</span>
-          <span className="mt-1 text-xs text-zinc-500">Camera or photo library</span>
+          <span className="text-sm font-medium text-zinc-700">Add Photo</span>
+          <span className="mt-1 text-xs text-zinc-500">Camera or Photo Library</span>
           <input
             type="file"
             accept="image/*"
@@ -212,9 +212,6 @@ export function ClosetView() {
         <p className="text-sm text-zinc-500">No items yet. Add your first clothing item above.</p>
       ) : (
         <>
-          <p className="text-xs text-zinc-500">
-            Hold the ⋮⋮ grip on a piece, then drag to reorder within its category.
-          </p>
           <div className="space-y-3">
             {visibleCategories.map((cat) => {
               const categoryItems = orderedItems(cat, items);
