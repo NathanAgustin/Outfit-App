@@ -1,6 +1,7 @@
 "use client";
 
 import { useCategoryOrder } from "@/components/CategoryOrderProvider";
+import { useItemOrder } from "@/components/ItemOrderProvider";
 import { CategoryDragHint, SortableCategoryList } from "@/components/SortableCategoryList";
 import { friendlySupabaseError } from "@/lib/supabase/errors";
 import { createClient } from "@/lib/supabase/client";
@@ -19,10 +20,6 @@ import {
 } from "@/lib/types";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
-function itemsForCategory(items: ClothingItem[], category: ClothingItem["category"]) {
-  return items.filter((item) => item.category === category);
-}
 
 /** Index 0 = None, 1..n = clothing items */
 function safeSlotIndex(index: number, itemCount: number) {
@@ -45,6 +42,7 @@ function indexForItemOrNone(items: ClothingItem[], itemId: string | null): numbe
 export function OutfitsView() {
   const supabase = useMemo(() => createClient(), []);
   const { order } = useCategoryOrder();
+  const { orderedItems } = useItemOrder();
   const [items, setItems] = useState<ClothingItem[]>([]);
   const [outfits, setOutfits] = useState<SavedOutfit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,12 +57,12 @@ export function OutfitsView() {
   const [loadedOutfitId, setLoadedOutfitId] = useState<string | null>(null);
   const [newOutfitName, setNewOutfitName] = useState("");
 
-  const tops = useMemo(() => itemsForCategory(items, "tops"), [items]);
-  const bottoms = useMemo(() => itemsForCategory(items, "bottoms"), [items]);
-  const dresses = useMemo(() => itemsForCategory(items, "dresses"), [items]);
-  const outerwear = useMemo(() => itemsForCategory(items, "outerwear"), [items]);
-  const shoes = useMemo(() => itemsForCategory(items, "shoes"), [items]);
-  const accessories = useMemo(() => itemsForCategory(items, "accessories"), [items]);
+  const tops = useMemo(() => orderedItems("tops", items), [orderedItems, items]);
+  const bottoms = useMemo(() => orderedItems("bottoms", items), [orderedItems, items]);
+  const dresses = useMemo(() => orderedItems("dresses", items), [orderedItems, items]);
+  const outerwear = useMemo(() => orderedItems("outerwear", items), [orderedItems, items]);
+  const shoes = useMemo(() => orderedItems("shoes", items), [orderedItems, items]);
+  const accessories = useMemo(() => orderedItems("accessories", items), [orderedItems, items]);
 
   const selectedTop = selectedFromSlot(tops, topIndex);
   const selectedBottom = selectedFromSlot(bottoms, bottomIndex);
@@ -412,20 +410,16 @@ export function OutfitsView() {
 
           const slot = slotByCategory[category];
           return (
-            <div className="relative">
-              <div className="absolute right-3 top-3 z-10">
-                <CategoryDragHint {...drag} />
-              </div>
-              <PreviewCard
-                label={slot.label}
-                item={slot.selected}
-                index={safeSlotIndex(slot.index, slot.items.length)}
-                count={slot.items.length + 1}
-                onPrev={slot.onPrev}
-                onNext={slot.onNext}
-                supabase={supabase}
-              />
-            </div>
+            <PreviewCard
+              label={slot.label}
+              item={slot.selected}
+              index={safeSlotIndex(slot.index, slot.items.length)}
+              count={slot.items.length + 1}
+              onPrev={slot.onPrev}
+              onNext={slot.onNext}
+              supabase={supabase}
+              drag={drag}
+            />
           );
         }}
       </SortableCategoryList>
@@ -565,6 +559,7 @@ function PreviewCard({
   onPrev,
   onNext,
   supabase,
+  drag,
 }: {
   label: string;
   item: ClothingItem | null;
@@ -573,14 +568,18 @@ function PreviewCard({
   onPrev: () => void;
   onNext: () => void;
   supabase: SupabaseClient;
+  drag: Parameters<typeof CategoryDragHint>[0];
 }) {
   return (
     <article className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">{label}</p>
-        <p className="text-xs text-zinc-500">
-          {index === 0 ? "None" : `${index} of ${count - 1}`}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-zinc-500">
+            {index === 0 ? "None" : `${index} of ${count - 1}`}
+          </p>
+          <CategoryDragHint {...drag} />
+        </div>
       </div>
 
       <div className="flex items-center gap-2">

@@ -1,7 +1,8 @@
 "use client";
 
 import { useCategoryOrder } from "@/components/CategoryOrderProvider";
-import { CategoryDragHint, SortableCategoryList } from "@/components/SortableCategoryList";
+import { useItemOrder } from "@/components/ItemOrderProvider";
+import { DragHandleHint, SortableIdList } from "@/components/SortableIdList";
 import { friendlySupabaseError } from "@/lib/supabase/errors";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -22,6 +23,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 export function ClosetView() {
   const supabase = useMemo(() => createClient(), []);
   const { order } = useCategoryOrder();
+  const { orderedItems, moveItem } = useItemOrder();
   const [items, setItems] = useState<ClothingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -88,7 +90,13 @@ export function ClosetView() {
       onFileChange(null);
       await loadItems();
     } catch (err) {
-      setError(friendlySupabaseError(err instanceof Error ? err.message : "Failed to add item"));
+      const raw =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: string }).message)
+          : err instanceof Error
+            ? err.message
+            : "Failed to add item";
+      setError(friendlySupabaseError(raw));
     } finally {
       setUploading(false);
     }
@@ -132,6 +140,10 @@ export function ClosetView() {
     setEditing(null);
     await loadItems();
   }
+
+  const visibleCategories = order.filter((cat) =>
+    items.some((item) => item.category === cat)
+  );
 
   return (
     <div className="space-y-6">
@@ -200,63 +212,66 @@ export function ClosetView() {
         <p className="text-sm text-zinc-500">No items yet. Add your first clothing item above.</p>
       ) : (
         <>
-          <p className="text-xs text-zinc-500">Hold the ⋮⋮ grip on a category, then drag to reorder.</p>
-          <SortableCategoryList
-            ids={order.filter((category) => items.some((item) => item.category === category))}
-          >
-            {(category, drag) => {
-              const categoryItems = items.filter((item) => item.category === category);
-              const label = categoryLabel(category);
+          <p className="text-xs text-zinc-500">
+            Hold the ⋮⋮ grip on a piece, then drag to reorder within its category.
+          </p>
+          <div className="space-y-3">
+            {visibleCategories.map((cat) => {
+              const categoryItems = orderedItems(cat, items);
+              const label = categoryLabel(cat);
 
               return (
-                <section className="rounded-2xl border border-zinc-200 bg-white p-3">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-                      {label}
-                    </h2>
-                    <CategoryDragHint {...drag} />
-                  </div>
-                  <ul className="space-y-2">
-                    {categoryItems.map((item) => (
-                      <li
-                        key={item.id}
-                        className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-3"
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={publicImageUrl(supabase, item.image_path) ?? ""}
-                          alt={item.name.trim() || "Clothing item"}
-                          className="h-14 w-14 shrink-0 rounded-lg object-cover bg-zinc-100"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-zinc-900">
-                            {item.name.trim()}
-                          </p>
-                          <p className="text-xs text-zinc-500">{label}</p>
+                <section key={cat} className="rounded-2xl border border-zinc-200 bg-white p-3">
+                  <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+                    {label}
+                  </h2>
+                  <SortableIdList
+                    ids={categoryItems.map((item) => item.id)}
+                    onReorder={(activeId, overId) => moveItem(cat, items, activeId, overId)}
+                  >
+                    {(id, drag) => {
+                      const item = categoryItems.find((entry) => entry.id === id);
+                      if (!item) return null;
+
+                      return (
+                        <div className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-3">
+                          <DragHandleHint {...drag} />
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={publicImageUrl(supabase, item.image_path) ?? ""}
+                            alt={item.name.trim() || "Clothing item"}
+                            className="h-14 w-14 shrink-0 rounded-lg object-cover bg-zinc-100"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-zinc-900">
+                              {item.name.trim()}
+                            </p>
+                            <p className="text-xs text-zinc-500">{label}</p>
+                          </div>
+                          <div className="flex shrink-0 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setEditing(item)}
+                              className="rounded-lg border border-zinc-200 px-2 py-1 text-xs"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(item)}
+                              className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-600"
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex shrink-0 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setEditing(item)}
-                            className="rounded-lg border border-zinc-200 px-2 py-1 text-xs"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(item)}
-                            className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-600"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
+                      );
+                    }}
+                  </SortableIdList>
                 </section>
               );
-            }}
-          </SortableCategoryList>
+            })}
+          </div>
         </>
       )}
 
