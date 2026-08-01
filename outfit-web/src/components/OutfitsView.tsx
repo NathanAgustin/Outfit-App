@@ -4,7 +4,7 @@ import { CapsulesSection } from "@/components/CapsulesSection";
 import { useCategoryOrder } from "@/components/CategoryOrderProvider";
 import { useItemOrder } from "@/components/ItemOrderProvider";
 import { CategoryDragHint, SortableCategoryList } from "@/components/SortableCategoryList";
-import { outfitSummary, previewForOutfit } from "@/lib/outfitDisplay";
+import { ensureDefaultCapsule, sortCapsulesForDisplay } from "@/lib/defaultCapsule";
 import { friendlySupabaseError } from "@/lib/supabase/errors";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -61,6 +61,10 @@ export function OutfitsView() {
   const [shoesIndex, setShoesIndex] = useState(0);
   const [accessoryIds, setAccessoryIds] = useState<string[]>([]);
   const [loadedOutfitId, setLoadedOutfitId] = useState<string | null>(null);
+  const [saveCapsuleIds, setSaveCapsuleIds] = useState<string[]>([]);
+  const [capsulePickerOpen, setCapsulePickerOpen] = useState(false);
+  const [saveCoverFile, setSaveCoverFile] = useState<File | null>(null);
+  const [saveCoverPreview, setSaveCoverPreview] = useState<string | null>(null);
 
   const tops = useMemo(() => orderedItems("tops", items), [orderedItems, items]);
   const bottoms = useMemo(() => orderedItems("bottoms", items), [orderedItems, items]);
@@ -97,18 +101,22 @@ export function OutfitsView() {
     if (itemsRes.error) setError(friendlySupabaseError(itemsRes.error.message));
     else setItems((itemsRes.data as ClothingItem[]) ?? []);
 
+    const loadedOutfits = outfitsRes.error
+      ? []
+      : ((outfitsRes.data as SavedOutfit[]) ?? []);
     if (outfitsRes.error) setError(friendlySupabaseError(outfitsRes.error.message));
-    else setOutfits((outfitsRes.data as SavedOutfit[]) ?? []);
+    else setOutfits(loadedOutfits);
 
     if (capsulesRes.error) {
       const msg = friendlySupabaseError(capsulesRes.error.message);
       if (
         capsulesRes.error.message.includes("capsules") ||
         capsulesRes.error.message.includes("schema cache") ||
-        capsulesRes.error.message.includes("does not exist")
+        capsulesRes.error.message.includes("does not exist") ||
+        capsulesRes.error.message.includes("is_default")
       ) {
         setError(
-          "Capsules need a database update. In Supabase → SQL Editor, run outfit-web/supabase/migration_capsules.sql, then refresh."
+          "Capsules need a database update. In Supabase → SQL Editor, run outfit-web/supabase/migration_capsules.sql and migration_default_capsule.sql, then refresh."
         );
         setCapsules([]);
         setCapsuleOutfits([]);
@@ -116,15 +124,66 @@ export function OutfitsView() {
         setError(msg);
       }
     } else {
-      setCapsules((capsulesRes.data as Capsule[]) ?? []);
+      let nextCapsules = (capsulesRes.data as Capsule[]) ?? [];
+      let nextMemberships = membershipRes.error
+        ? []
+        : ((membershipRes.data as CapsuleOutfit[]) ?? []);
       if (membershipRes.error) setError(friendlySupabaseError(membershipRes.error.message));
-      else setCapsuleOutfits((membershipRes.data as CapsuleOutfit[]) ?? []);
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        try {
+          const ensured = await ensureDefaultCapsule(
+            supabase,
+            user.id,
+            nextCapsules,
+            loadedOutfits,
+            nextMemberships
+          );
+          nextCapsules = ensured.capsules;
+          nextMemberships = ensured.memberships;
+        } catch (err) {
+          const message =
+            err && typeof err === "object" && "message" in err
+              ? String((err as { message: string }).message)
+              : "Failed to set up Saved Outfits capsule";
+          if (message.includes("is_default")) {
+            setError(
+              "Capsules need a database update. In Supabase → SQL Editor, run outfit-web/supabase/migration_default_capsule.sql, then refresh."
+            );
+          } else {
+            setError(friendlySupabaseError(message));
+          }
+        }
+      }
+
+      setCapsules(nextCapsules);
+      setCapsuleOutfits(nextMemberships);
     }
 
     if (!opts?.silent) setLoading(false);
   }, [supabase]);
 
   const refreshQuietly = useCallback(() => loadData({ silent: true }), [loadData]);
+
+  const defaultCapsule = useMemo(
+    () => capsules.find((capsule) => capsule.is_default) ?? null,
+    [capsules]
+  );
+  const selectableCapsules = useMemo(() => sortCapsulesForDisplay(capsules), [capsules]);
+
+  useEffect(() => {
+    if (!defaultCapsule) return;
+    setSaveCapsuleIds((current) => {
+      const withoutMissing = current.filter((id) => capsules.some((c) => c.id === id));
+      if (!withoutMissing.includes(defaultCapsule.id)) {
+        return [defaultCapsule.id, ...withoutMissing];
+      }
+      return withoutMissing.length > 0 ? withoutMissing : [defaultCapsule.id];
+    });
+  }, [defaultCapsule, capsules]);
 
   useEffect(() => {
     loadData();
@@ -156,8 +215,46 @@ export function OutfitsView() {
     };
   }
 
+  function clearSaveCover() {
+    if (saveCoverPreview) URL.revokeObjectURL(saveCoverPreview);
+    setSaveCoverFile(null);
+    setSaveCoverPreview(null);
+  }
+
+  function onSaveCoverChange(file: File | null) {
+    if (saveCoverPreview) URL.revokeObjectURL(saveCoverPreview);
+    setSaveCoverFile(file);
+    setSaveCoverPreview(file ? URL.createObjectURL(file) : null);
+  }
+
+  function toggleSaveCapsule(id: string) {
+    if (defaultCapsule && id === defaultCapsule.id) return;
+    setSaveCapsuleIds((current) => {
+      const base = defaultCapsule ? [defaultCapsule.id] : [];
+      const others = current.filter((x) => x !== defaultCapsule?.id);
+      if (others.includes(id)) {
+        return [...base, ...others.filter((x) => x !== id)];
+      }
+      return [...base, ...others, id];
+    });
+  }
+
+  async function addOutfitToCapsules(outfitId: string, capsuleIds: string[]) {
+    const uniqueIds = Array.from(new Set(capsuleIds));
+    for (const capsuleId of uniqueIds) {
+      const existing = capsuleOutfits.filter((row) => row.capsule_id === capsuleId);
+      const sortOrder = existing.reduce((max, row) => Math.max(max, row.sort_order), -1) + 1;
+      const { error } = await supabase.from("capsule_outfits").upsert({
+        capsule_id: capsuleId,
+        outfit_id: outfitId,
+        sort_order: sortOrder,
+      });
+      if (error) throw error;
+    }
+  }
+
   async function saveOutfit() {
-    if (!canSaveOutfit) return;
+    if (!canSaveOutfit || !defaultCapsule) return;
     setSaving(true);
     setError(null);
 
@@ -169,25 +266,50 @@ export function OutfitsView() {
       return;
     }
 
-    const { data, error: insertError } = await supabase
-      .from("saved_outfits")
-      .insert({
-        user_id: user.id,
-        name: "",
-        ...currentSelectionPayload(),
-      })
-      .select("*")
-      .single();
+    const outfitId = crypto.randomUUID();
+    let previewPath: string | null = null;
 
-    if (insertError) {
-      setError(friendlySupabaseError(insertError.message));
+    try {
+      if (saveCoverFile) {
+        previewPath = outfitPreviewPath(user.id, outfitId);
+        const blob = await resizeImageFile(saveCoverFile);
+        await uploadImage(supabase, previewPath, blob);
+      }
+
+      const { data, error: insertError } = await supabase
+        .from("saved_outfits")
+        .insert({
+          id: outfitId,
+          user_id: user.id,
+          name: "",
+          preview_image_path: previewPath,
+          ...currentSelectionPayload(),
+        })
+        .select("*")
+        .single();
+
+      if (insertError) throw insertError;
+
+      const targets = saveCapsuleIds.includes(defaultCapsule.id)
+        ? saveCapsuleIds
+        : [defaultCapsule.id, ...saveCapsuleIds];
+      await addOutfitToCapsules(data.id, targets);
+
+      setLoadedOutfitId(data.id);
+      clearSaveCover();
+      setCapsulePickerOpen(false);
+      await refreshQuietly();
+    } catch (err) {
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: string }).message)
+          : err instanceof Error
+            ? err.message
+            : "Failed to save outfit";
+      setError(friendlySupabaseError(message));
+    } finally {
       setSaving(false);
-      return;
     }
-
-    setLoadedOutfitId(data.id);
-    await refreshQuietly();
-    setSaving(false);
   }
 
   async function updateLoadedOutfit() {
@@ -229,7 +351,7 @@ export function OutfitsView() {
   }
 
   async function deleteOutfit(id: string) {
-    if (!confirm("Delete this outfit from Closet? It will also leave any capsules.")) return;
+    if (!confirm("Delete this outfit permanently?")) return;
 
     const outfit = outfits.find((o) => o.id === id);
     const { error: deleteError } = await supabase.from("saved_outfits").delete().eq("id", id);
@@ -250,38 +372,12 @@ export function OutfitsView() {
     await refreshQuietly();
   }
 
-  async function setOutfitPreview(outfit: SavedOutfit, file: File) {
-    setError(null);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-
-    try {
-      const path = outfitPreviewPath(user.id, outfit.id);
-      const blob = await resizeImageFile(file);
-      await uploadImage(supabase, path, blob);
-
-      const { error: updateError } = await supabase
-        .from("saved_outfits")
-        .update({ preview_image_path: path, date_modified: new Date().toISOString() })
-        .eq("id", outfit.id);
-
-      if (updateError) throw updateError;
-      await refreshQuietly();
-    } catch (err) {
-      setError(friendlySupabaseError(err instanceof Error ? err.message : "Failed to upload preview"));
-    }
-  }
-
-  async function resetOutfitPreview(outfit: SavedOutfit) {
-    if (!outfit.preview_image_path) return;
-    await supabase
-      .from("saved_outfits")
-      .update({ preview_image_path: null, date_modified: new Date().toISOString() })
-      .eq("id", outfit.id);
-    await refreshQuietly();
-  }
+  const saveTargetLabel = useMemo(() => {
+    if (!defaultCapsule) return "Select capsules";
+    const selected = selectableCapsules.filter((capsule) => saveCapsuleIds.includes(capsule.id));
+    if (selected.length <= 1) return defaultCapsule.name;
+    return selected.map((capsule) => capsule.name).join(", ");
+  }, [defaultCapsule, selectableCapsules, saveCapsuleIds]);
 
   const slotByCategory = useMemo(() => {
     return {
@@ -416,86 +512,103 @@ export function OutfitsView() {
         }}
       </SortableCategoryList>
 
-      <section className="rounded-2xl border border-zinc-200 bg-white p-4">
-        <h2 className="text-sm font-semibold text-zinc-800">Save to Closet</h2>
-        <p className="mt-1 text-xs text-zinc-500">
-          Outfits save unnamed. Select at least 2 pieces, then save.
-        </p>
+      <section className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4">
+        <div>
+          <button
+            type="button"
+            onClick={() => setCapsulePickerOpen((v) => !v)}
+            className="flex w-full items-center justify-between gap-3 rounded-xl border border-zinc-200 px-4 py-3 text-left"
+          >
+            <div className="min-w-0">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                Select capsules
+              </p>
+              <p className="truncate text-sm font-medium text-zinc-900">{saveTargetLabel}</p>
+            </div>
+            <span className="shrink-0 text-zinc-400" aria-hidden>
+              {capsulePickerOpen ? "▴" : "▾"}
+            </span>
+          </button>
+
+          {capsulePickerOpen && (
+            <ul className="mt-2 space-y-1 rounded-xl border border-zinc-200 p-2">
+              {selectableCapsules.map((capsule) => {
+                const checked = saveCapsuleIds.includes(capsule.id);
+                const locked = Boolean(capsule.is_default);
+                return (
+                  <li key={capsule.id}>
+                    <label
+                      className={`flex items-center gap-3 rounded-lg px-2 py-2 ${
+                        locked ? "bg-zinc-50" : "hover:bg-zinc-50"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={locked}
+                        onChange={() => toggleSaveCapsule(capsule.id)}
+                        className="h-4 w-4"
+                      />
+                      <span className="text-sm text-zinc-800">
+                        {capsule.name}
+                        {locked ? " (always)" : ""}
+                      </span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-dashed border-zinc-300 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-medium text-zinc-800">Outfit cover</p>
+              <p className="text-xs text-zinc-500">Optional photo for this outfit</p>
+            </div>
+            <CoverPickerButton
+              label={saveCoverFile ? "Change" : "Add photo"}
+              onPick={onSaveCoverChange}
+            />
+          </div>
+          {saveCoverPreview && (
+            <div className="mt-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={saveCoverPreview}
+                alt="Outfit cover preview"
+                className="h-36 w-full rounded-xl object-contain bg-zinc-50"
+              />
+              <button
+                type="button"
+                onClick={clearSaveCover}
+                className="mt-2 text-xs text-zinc-600 underline"
+              >
+                Remove cover
+              </button>
+            </div>
+          )}
+        </div>
+
         <button
           type="button"
-          disabled={!canSaveOutfit || saving}
+          disabled={!canSaveOutfit || saving || !defaultCapsule}
           onClick={saveOutfit}
-          className="mt-3 w-full rounded-xl bg-zinc-900 py-3 text-sm font-semibold text-white disabled:opacity-50"
+          className="w-full rounded-xl bg-zinc-900 py-3 text-sm font-semibold text-white disabled:opacity-50"
         >
           {saving ? "Saving..." : "Save outfit"}
         </button>
+        <p className="text-xs text-zinc-500">Select at least 2 pieces. Saves into Saved Outfits plus any others you pick.</p>
         {loadedOutfitId && (
           <button
             type="button"
             disabled={!canSaveOutfit}
             onClick={updateLoadedOutfit}
-            className="mt-2 w-full rounded-xl border border-zinc-300 py-2 text-sm font-medium disabled:opacity-50"
+            className="w-full rounded-xl border border-zinc-300 py-2 text-sm font-medium disabled:opacity-50"
           >
             Update loaded outfit
           </button>
-        )}
-      </section>
-
-      <section className="rounded-2xl border border-zinc-200 bg-white p-4">
-        <h2 className="text-sm font-semibold text-zinc-800">Closet</h2>
-        <p className="mt-0.5 text-xs text-zinc-500">All saved outfits live here.</p>
-
-        {outfits.length === 0 ? (
-          <p className="mt-3 text-sm text-zinc-500">No outfits yet. Build one above and save it.</p>
-        ) : (
-          <ul className="mt-4 grid grid-cols-2 gap-3">
-            {outfits.map((outfit) => {
-              const preview = previewForOutfit(supabase, outfit, items);
-              return (
-                <li key={outfit.id} className="overflow-hidden rounded-xl border border-zinc-200">
-                  <button
-                    type="button"
-                    onClick={() => loadOutfit(outfit)}
-                    className="w-full text-left"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={preview ?? ""}
-                      alt=""
-                      className="aspect-square w-full object-cover bg-zinc-100"
-                    />
-                    <div className="p-2">
-                      <p className="line-clamp-2 text-[11px] text-zinc-600">
-                        {outfitSummary(outfit, items)}
-                      </p>
-                      {loadedOutfitId === outfit.id && (
-                        <p className="mt-1 text-[10px] font-semibold text-green-700">Loaded</p>
-                      )}
-                    </div>
-                  </button>
-                  <div className="flex flex-wrap gap-1 border-t border-zinc-100 p-2">
-                    <PreviewPhotoButton onPick={(file) => setOutfitPreview(outfit, file)} />
-                    {outfit.preview_image_path && (
-                      <button
-                        type="button"
-                        onClick={() => resetOutfitPreview(outfit)}
-                        className="rounded-lg border px-2 py-1 text-[10px]"
-                      >
-                        Default image
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => deleteOutfit(outfit.id)}
-                      className="rounded-lg border border-red-200 px-2 py-1 text-[10px] text-red-600"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
         )}
       </section>
 
@@ -508,12 +621,19 @@ export function OutfitsView() {
         onRefresh={refreshQuietly}
         onError={setError}
         onLoadOutfit={loadOutfit}
+        onDeleteOutfit={deleteOutfit}
       />
     </div>
   );
 }
 
-function PreviewPhotoButton({ onPick }: { onPick: (file: File) => void }) {
+function CoverPickerButton({
+  onPick,
+  label,
+}: {
+  onPick: (file: File) => void;
+  label: string;
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   return (
@@ -521,9 +641,9 @@ function PreviewPhotoButton({ onPick }: { onPick: (file: File) => void }) {
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="rounded-lg border px-2 py-1 text-[10px]"
+        className="rounded-lg border px-3 py-1.5 text-xs font-medium"
       >
-        Preview photo
+        {label}
       </button>
       <input
         ref={inputRef}

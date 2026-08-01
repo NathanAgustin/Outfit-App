@@ -60,6 +60,7 @@ export type Capsule = {
   cover_image_path: string | null;
   sort_order: number;
   created_at: string;
+  is_default: boolean;
 };
 
 export type CapsuleOutfit = {

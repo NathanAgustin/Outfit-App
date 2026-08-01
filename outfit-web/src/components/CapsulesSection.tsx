@@ -1,10 +1,12 @@
 "use client";
 
 import { DragHandleHint, SortableIdList } from "@/components/SortableIdList";
+import { DEFAULT_CAPSULE_NAME, sortCapsulesForDisplay } from "@/lib/defaultCapsule";
 import { outfitSummary, previewForOutfit } from "@/lib/outfitDisplay";
 import {
   capsuleCoverPath,
   deleteImage,
+  outfitPreviewPath,
   publicImageUrl,
   resizeImageFile,
   uploadImage,
@@ -23,6 +25,7 @@ type CapsulesSectionProps = {
   onRefresh: () => Promise<void>;
   onError: (message: string | null) => void;
   onLoadOutfit: (outfit: SavedOutfit) => void;
+  onDeleteOutfit: (outfitId: string) => Promise<void>;
 };
 
 export function CapsulesSection({
@@ -34,11 +37,14 @@ export function CapsulesSection({
   onRefresh,
   onError,
   onLoadOutfit,
+  onDeleteOutfit,
 }: CapsulesSectionProps) {
   const [openCapsuleId, setOpenCapsuleId] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
 
+  const orderedCapsules = useMemo(() => sortCapsulesForDisplay(capsules), [capsules]);
   const openCapsule = capsules.find((c) => c.id === openCapsuleId) ?? null;
 
   async function createCapsule() {
@@ -51,13 +57,15 @@ export function CapsulesSection({
     } = await supabase.auth.getUser();
     if (!user) return;
 
+    const custom = capsules.filter((capsule) => !capsule.is_default);
     const sortOrder =
-      capsules.reduce((max, capsule) => Math.max(max, capsule.sort_order), -1) + 1;
+      custom.reduce((max, capsule) => Math.max(max, capsule.sort_order), 0) + 1;
 
     const { error } = await supabase.from("capsules").insert({
       user_id: user.id,
       name,
       sort_order: sortOrder,
+      is_default: false,
     });
 
     if (error) {
@@ -67,6 +75,29 @@ export function CapsulesSection({
 
     setNewName("");
     setCreating(false);
+    await onRefresh();
+  }
+
+  async function deleteCapsule(capsule: Capsule) {
+    if (capsule.is_default) return;
+    if (!confirm(`Delete capsule “${capsule.name}”? Outfits stay in ${DEFAULT_CAPSULE_NAME}.`)) {
+      return;
+    }
+    onError(null);
+    const coverPath = capsule.cover_image_path;
+    const { error } = await supabase.from("capsules").delete().eq("id", capsule.id);
+    if (error) {
+      onError(friendlySupabaseError(error.message));
+      return;
+    }
+    if (coverPath) {
+      try {
+        await deleteImage(supabase, coverPath);
+      } catch {
+        // best-effort
+      }
+    }
+    if (openCapsuleId === capsule.id) setOpenCapsuleId(null);
     await onRefresh();
   }
 
@@ -82,9 +113,8 @@ export function CapsulesSection({
         onRefresh={onRefresh}
         onError={onError}
         onLoadOutfit={onLoadOutfit}
-        onDeleted={() => {
-          setOpenCapsuleId(null);
-        }}
+        onDeleteOutfit={onDeleteOutfit}
+        onDeleted={() => setOpenCapsuleId(null)}
       />
     );
   }
@@ -92,78 +122,107 @@ export function CapsulesSection({
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white p-4">
       <div className="flex items-center justify-between gap-2">
-        <div>
-          <h2 className="text-sm font-semibold text-zinc-800">Capsules</h2>
-          <p className="mt-0.5 text-xs text-zinc-500">Albums of outfits — name them and set a cover.</p>
-        </div>
+        <h2 className="text-sm font-semibold text-zinc-800">Capsules</h2>
         <button
           type="button"
-          onClick={() => setCreating((v) => !v)}
-          className="rounded-xl bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white"
+          onClick={() => {
+            setEditing((v) => !v);
+            setCreating(false);
+          }}
+          className="text-sm font-medium text-zinc-700"
         >
-          {creating ? "Cancel" : "New"}
+          {editing ? "Done" : "Edit"}
         </button>
       </div>
 
-      {creating && (
-        <div className="mt-3 flex gap-2">
-          <input
-            type="text"
-            placeholder="Capsule name"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            className="min-w-0 flex-1 rounded-xl border border-zinc-200 px-3 py-2 text-sm"
-          />
-          <button
-            type="button"
-            disabled={!newName.trim()}
-            onClick={createCapsule}
-            className="shrink-0 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-          >
-            Create
-          </button>
-        </div>
-      )}
+      <ul className="mt-4 space-y-2">
+        <li>
+          {creating ? (
+            <div className="flex items-center gap-2 rounded-xl border border-zinc-200 p-2">
+              <input
+                type="text"
+                placeholder="Capsule name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                className="min-w-0 flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                autoFocus
+              />
+              <button
+                type="button"
+                disabled={!newName.trim()}
+                onClick={createCapsule}
+                className="rounded-lg bg-zinc-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+              >
+                Add
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCreating(false);
+                  setNewName("");
+                }}
+                className="rounded-lg border px-3 py-2 text-xs"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setCreating(true)}
+              className="flex w-full items-center gap-3 rounded-xl border border-dashed border-zinc-300 px-3 py-2.5 text-left"
+            >
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-2xl text-zinc-500">
+                +
+              </span>
+              <span className="text-sm font-medium text-zinc-700">New capsule</span>
+            </button>
+          )}
+        </li>
 
-      {capsules.length === 0 ? (
-        <p className="mt-3 text-sm text-zinc-500">No capsules yet. Create one to group outfits.</p>
-      ) : (
-        <ul className="mt-4 grid grid-cols-2 gap-3">
-          {capsules.map((capsule) => {
-            const count = capsuleOutfits.filter((row) => row.capsule_id === capsule.id).length;
-            const cover =
-              publicImageUrl(supabase, capsule.cover_image_path) ??
-              firstOutfitCover(supabase, capsule.id, capsuleOutfits, outfits, items);
+        {orderedCapsules.map((capsule) => {
+          const count = capsuleOutfits.filter((row) => row.capsule_id === capsule.id).length;
+          const cover =
+            publicImageUrl(supabase, capsule.cover_image_path) ??
+            firstOutfitCover(supabase, capsule.id, capsuleOutfits, outfits, items);
 
-            return (
-              <li key={capsule.id}>
+          return (
+            <li key={capsule.id} className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setOpenCapsuleId(capsule.id)}
+                className="flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-zinc-200 px-3 py-2 text-left"
+              >
+                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-zinc-100">
+                  {cover ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={cover} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-[10px] text-zinc-400">
+                      Empty
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-zinc-900">{capsule.name}</p>
+                  <p className="text-xs text-zinc-500">
+                    {count} {count === 1 ? "outfit" : "outfits"}
+                  </p>
+                </div>
+              </button>
+              {editing && !capsule.is_default && (
                 <button
                   type="button"
-                  onClick={() => setOpenCapsuleId(capsule.id)}
-                  className="w-full overflow-hidden rounded-xl border border-zinc-200 text-left"
+                  onClick={() => deleteCapsule(capsule)}
+                  className="shrink-0 rounded-lg border border-red-200 px-2 py-2 text-xs text-red-600"
                 >
-                  <div className="aspect-square bg-zinc-100">
-                    {cover ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={cover} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-xs text-zinc-400">
-                        No cover
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-2">
-                    <p className="truncate text-sm font-medium text-zinc-900">{capsule.name}</p>
-                    <p className="text-xs text-zinc-500">
-                      {count} {count === 1 ? "outfit" : "outfits"}
-                    </p>
-                  </div>
+                  Delete
                 </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }
@@ -197,6 +256,7 @@ function CapsuleDetail({
   onRefresh,
   onError,
   onLoadOutfit,
+  onDeleteOutfit,
   onDeleted,
 }: {
   capsule: Capsule;
@@ -208,6 +268,7 @@ function CapsuleDetail({
   onRefresh: () => Promise<void>;
   onError: (message: string | null) => void;
   onLoadOutfit: (outfit: SavedOutfit) => void;
+  onDeleteOutfit: (outfitId: string) => Promise<void>;
   onDeleted: () => void;
 }) {
   const orderedOutfits = useMemo(() => {
@@ -235,11 +296,15 @@ function CapsuleDetail({
   }, [orderedOutfits.length]);
 
   const current = orderedOutfits[index] ?? null;
-  const availableToAdd = outfits.filter(
-    (outfit) => !memberships.some((row) => row.outfit_id === outfit.id)
-  );
+  const availableToAdd = useMemo(() => {
+    if (capsule.is_default) return [];
+    return outfits.filter(
+      (outfit) => !memberships.some((row) => row.outfit_id === outfit.id)
+    );
+  }, [capsule.is_default, outfits, memberships]);
 
   async function renameCapsule() {
+    if (capsule.is_default) return;
     const name = prompt("Capsule name", capsule.name)?.trim();
     if (!name) return;
     onError(null);
@@ -290,7 +355,10 @@ function CapsuleDetail({
   }
 
   async function deleteCapsule() {
-    if (!confirm(`Delete capsule “${capsule.name}”? Outfits stay in Closet.`)) return;
+    if (capsule.is_default) return;
+    if (!confirm(`Delete capsule “${capsule.name}”? Outfits stay in ${DEFAULT_CAPSULE_NAME}.`)) {
+      return;
+    }
     onError(null);
     const coverPath = capsule.cover_image_path;
     const { error } = await supabase.from("capsules").delete().eq("id", capsule.id);
@@ -325,14 +393,55 @@ function CapsuleDetail({
     }
   }
 
-  async function removeOutfit(outfitId: string) {
-    if (!confirm("Remove this outfit from the capsule?")) return;
+  async function removeOrDeleteOutfit(outfitId: string) {
+    if (capsule.is_default) {
+      if (!confirm("Delete this outfit permanently?")) return;
+      await onDeleteOutfit(outfitId);
+      return;
+    }
+    if (!confirm(`Remove this outfit from “${capsule.name}”? It stays in ${DEFAULT_CAPSULE_NAME}.`)) {
+      return;
+    }
     onError(null);
     const { error } = await supabase
       .from("capsule_outfits")
       .delete()
       .eq("capsule_id", capsule.id)
       .eq("outfit_id", outfitId);
+    if (error) onError(friendlySupabaseError(error.message));
+    else await onRefresh();
+  }
+
+  async function setOutfitCover(file: File) {
+    if (!current) return;
+    onError(null);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    try {
+      const path = outfitPreviewPath(user.id, current.id);
+      const blob = await resizeImageFile(file);
+      await uploadImage(supabase, path, blob);
+      const { error } = await supabase
+        .from("saved_outfits")
+        .update({ preview_image_path: path, date_modified: new Date().toISOString() })
+        .eq("id", current.id);
+      if (error) throw error;
+      await onRefresh();
+    } catch (err) {
+      onError(friendlySupabaseError(err instanceof Error ? err.message : "Failed to upload cover"));
+    }
+  }
+
+  async function clearOutfitCover() {
+    if (!current?.preview_image_path) return;
+    onError(null);
+    const { error } = await supabase
+      .from("saved_outfits")
+      .update({ preview_image_path: null, date_modified: new Date().toISOString() })
+      .eq("id", current.id);
     if (error) onError(friendlySupabaseError(error.message));
     else await onRefresh();
   }
@@ -377,10 +486,6 @@ function CapsuleDetail({
     });
   }
 
-  const coverUrl =
-    publicImageUrl(supabase, capsule.cover_image_path) ??
-    (current ? previewForOutfit(supabase, current, items) : null);
-
   return (
     <section className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-4">
       <div className="flex items-start justify-between gap-2">
@@ -388,22 +493,26 @@ function CapsuleDetail({
           ‹ Capsules
         </button>
         <div className="flex flex-wrap justify-end gap-2">
-          <button type="button" onClick={renameCapsule} className="rounded-lg border px-2 py-1 text-xs">
-            Rename
-          </button>
-          <CoverPhotoButton onPick={setCover} />
-          {capsule.cover_image_path && (
-            <button type="button" onClick={clearCover} className="rounded-lg border px-2 py-1 text-xs">
-              Clear cover
+          {!capsule.is_default && (
+            <button type="button" onClick={renameCapsule} className="rounded-lg border px-2 py-1 text-xs">
+              Rename
             </button>
           )}
-          <button
-            type="button"
-            onClick={deleteCapsule}
-            className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-600"
-          >
-            Delete
-          </button>
+          <CoverPhotoButton label="Album cover" onPick={setCover} />
+          {capsule.cover_image_path && (
+            <button type="button" onClick={clearCover} className="rounded-lg border px-2 py-1 text-xs">
+              Clear album cover
+            </button>
+          )}
+          {!capsule.is_default && (
+            <button
+              type="button"
+              onClick={deleteCapsule}
+              className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-600"
+            >
+              Delete
+            </button>
+          )}
         </div>
       </div>
 
@@ -414,23 +523,14 @@ function CapsuleDetail({
         </p>
       </div>
 
-      {coverUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={coverUrl}
-          alt=""
-          className="h-28 w-full rounded-xl object-cover bg-zinc-100"
-        />
-      )}
-
       {orderedOutfits.length === 0 ? (
-        <p className="text-sm text-zinc-500">No outfits in this capsule yet. Add some from Closet.</p>
+        <p className="text-sm text-zinc-500">
+          {capsule.is_default
+            ? "No outfits yet. Save one from the builder above."
+            : `No outfits in this capsule yet. Add some from ${DEFAULT_CAPSULE_NAME}.`}
+        </p>
       ) : (
-        <div
-          className="select-none"
-          onTouchStart={onTouchStart}
-          onTouchEnd={onTouchEnd}
-        >
+        <div className="select-none" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -469,7 +569,7 @@ function CapsuleDetail({
               ›
             </button>
           </div>
-          <div className="mt-3 flex gap-2">
+          <div className="mt-3 flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => current && onLoadOutfit(current)}
@@ -477,25 +577,37 @@ function CapsuleDetail({
             >
               Load in builder
             </button>
+            <CoverPhotoButton label="Outfit cover" onPick={setOutfitCover} />
+            {current?.preview_image_path && (
+              <button
+                type="button"
+                onClick={clearOutfitCover}
+                className="rounded-xl border px-3 py-2 text-sm"
+              >
+                Default image
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => current && removeOutfit(current.id)}
+              onClick={() => current && removeOrDeleteOutfit(current.id)}
               className="rounded-xl border border-red-200 px-3 py-2 text-sm text-red-600"
             >
-              Remove
+              {capsule.is_default ? "Delete" : "Remove"}
             </button>
           </div>
         </div>
       )}
 
       <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => setAdding((v) => !v)}
-          className="flex-1 rounded-xl border border-zinc-300 py-2 text-sm font-medium"
-        >
-          {adding ? "Done adding" : "Add from Closet"}
-        </button>
+        {!capsule.is_default && (
+          <button
+            type="button"
+            onClick={() => setAdding((v) => !v)}
+            className="flex-1 rounded-xl border border-zinc-300 py-2 text-sm font-medium"
+          >
+            {adding ? "Done adding" : `Add from ${DEFAULT_CAPSULE_NAME}`}
+          </button>
+        )}
         <button
           type="button"
           disabled={orderedOutfits.length < 2}
@@ -506,10 +618,12 @@ function CapsuleDetail({
         </button>
       </div>
 
-      {adding && (
+      {adding && !capsule.is_default && (
         <div className="rounded-xl border border-zinc-200 p-3">
           {availableToAdd.length === 0 ? (
-            <p className="text-sm text-zinc-500">All Closet outfits are already in this capsule.</p>
+            <p className="text-sm text-zinc-500">
+              All outfits from {DEFAULT_CAPSULE_NAME} are already in this capsule.
+            </p>
           ) : (
             <ul className="grid grid-cols-3 gap-2">
               {availableToAdd.map((outfit) => (
@@ -565,7 +679,13 @@ function CapsuleDetail({
   );
 }
 
-function CoverPhotoButton({ onPick }: { onPick: (file: File) => void }) {
+function CoverPhotoButton({
+  onPick,
+  label = "Cover photo",
+}: {
+  onPick: (file: File) => void;
+  label?: string;
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
   return (
     <>
@@ -574,7 +694,7 @@ function CoverPhotoButton({ onPick }: { onPick: (file: File) => void }) {
         onClick={() => inputRef.current?.click()}
         className="rounded-lg border px-2 py-1 text-xs"
       >
-        Cover photo
+        {label}
       </button>
       <input
         ref={inputRef}

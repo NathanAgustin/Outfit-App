@@ -2,6 +2,7 @@
 -- (for brand-new projects). Existing projects should run:
 --   migration_dress_outerwear_optional_slots.sql
 --   migration_capsules.sql
+--   migration_default_capsule.sql
 
 -- ========== TABLES ==========
 
@@ -57,10 +58,14 @@ create table if not exists public.capsules (
   name text not null,
   cover_image_path text,
   sort_order int not null default 0,
+  is_default boolean not null default false,
   created_at timestamptz not null default now()
 );
 
 create index if not exists capsules_user_id_idx on public.capsules (user_id, sort_order);
+create unique index if not exists capsules_one_default_per_user
+  on public.capsules (user_id)
+  where (is_default = true);
 
 alter table public.capsules enable row level security;
 
