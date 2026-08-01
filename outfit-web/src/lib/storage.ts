@@ -10,6 +10,10 @@ export function outfitPreviewPath(userId: string, outfitId: string) {
   return `${userId}/outfits/${outfitId}/preview.jpg`;
 }
 
+export function capsuleCoverPath(userId: string, capsuleId: string) {
+  return `${userId}/capsules/${capsuleId}/cover.jpg`;
+}
+
 export function publicImageUrl(
   supabase: SupabaseClient,
   path: string | null | undefined

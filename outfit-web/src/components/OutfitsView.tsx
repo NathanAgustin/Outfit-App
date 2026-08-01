@@ -1,8 +1,10 @@
 "use client";
 
+import { CapsulesSection } from "@/components/CapsulesSection";
 import { useCategoryOrder } from "@/components/CategoryOrderProvider";
 import { useItemOrder } from "@/components/ItemOrderProvider";
 import { CategoryDragHint, SortableCategoryList } from "@/components/SortableCategoryList";
+import { outfitSummary, previewForOutfit } from "@/lib/outfitDisplay";
 import { friendlySupabaseError } from "@/lib/supabase/errors";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -12,8 +14,9 @@ import {
   uploadImage,
 } from "@/lib/storage";
 import {
+  Capsule,
+  CapsuleOutfit,
   ClothingItem,
-  OUTFIT_SLOT_CATEGORIES,
   SavedOutfit,
   countOutfitPieces,
   displayName,
@@ -45,8 +48,11 @@ export function OutfitsView() {
   const { orderedItems } = useItemOrder();
   const [items, setItems] = useState<ClothingItem[]>([]);
   const [outfits, setOutfits] = useState<SavedOutfit[]>([]);
+  const [capsules, setCapsules] = useState<Capsule[]>([]);
+  const [capsuleOutfits, setCapsuleOutfits] = useState<CapsuleOutfit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const [topIndex, setTopIndex] = useState(0);
   const [bottomIndex, setBottomIndex] = useState(0);
@@ -55,7 +61,6 @@ export function OutfitsView() {
   const [shoesIndex, setShoesIndex] = useState(0);
   const [accessoryIds, setAccessoryIds] = useState<string[]>([]);
   const [loadedOutfitId, setLoadedOutfitId] = useState<string | null>(null);
-  const [newOutfitName, setNewOutfitName] = useState("");
 
   const tops = useMemo(() => orderedItems("tops", items), [orderedItems, items]);
   const bottoms = useMemo(() => orderedItems("bottoms", items), [orderedItems, items]);
@@ -80,11 +85,13 @@ export function OutfitsView() {
   });
   const canSaveOutfit = pieceCount >= 2;
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    const [itemsRes, outfitsRes] = await Promise.all([
+  const loadData = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
+    const [itemsRes, outfitsRes, capsulesRes, membershipRes] = await Promise.all([
       supabase.from("clothing_items").select("*").order("created_at", { ascending: false }),
       supabase.from("saved_outfits").select("*").order("date_modified", { ascending: false }),
+      supabase.from("capsules").select("*").order("sort_order", { ascending: true }),
+      supabase.from("capsule_outfits").select("*").order("sort_order", { ascending: true }),
     ]);
 
     if (itemsRes.error) setError(friendlySupabaseError(itemsRes.error.message));
@@ -93,8 +100,31 @@ export function OutfitsView() {
     if (outfitsRes.error) setError(friendlySupabaseError(outfitsRes.error.message));
     else setOutfits((outfitsRes.data as SavedOutfit[]) ?? []);
 
-    setLoading(false);
+    if (capsulesRes.error) {
+      const msg = friendlySupabaseError(capsulesRes.error.message);
+      if (
+        capsulesRes.error.message.includes("capsules") ||
+        capsulesRes.error.message.includes("schema cache") ||
+        capsulesRes.error.message.includes("does not exist")
+      ) {
+        setError(
+          "Capsules need a database update. In Supabase → SQL Editor, run outfit-web/supabase/migration_capsules.sql, then refresh."
+        );
+        setCapsules([]);
+        setCapsuleOutfits([]);
+      } else {
+        setError(msg);
+      }
+    } else {
+      setCapsules((capsulesRes.data as Capsule[]) ?? []);
+      if (membershipRes.error) setError(friendlySupabaseError(membershipRes.error.message));
+      else setCapsuleOutfits((membershipRes.data as CapsuleOutfit[]) ?? []);
+    }
+
+    if (!opts?.silent) setLoading(false);
   }, [supabase]);
+
+  const refreshQuietly = useCallback(() => loadData({ silent: true }), [loadData]);
 
   useEffect(() => {
     loadData();
@@ -127,19 +157,23 @@ export function OutfitsView() {
   }
 
   async function saveOutfit() {
-    if (!canSaveOutfit || !newOutfitName.trim()) return;
+    if (!canSaveOutfit) return;
+    setSaving(true);
     setError(null);
 
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setSaving(false);
+      return;
+    }
 
     const { data, error: insertError } = await supabase
       .from("saved_outfits")
       .insert({
         user_id: user.id,
-        name: newOutfitName.trim(),
+        name: "",
         ...currentSelectionPayload(),
       })
       .select("*")
@@ -147,12 +181,13 @@ export function OutfitsView() {
 
     if (insertError) {
       setError(friendlySupabaseError(insertError.message));
+      setSaving(false);
       return;
     }
 
     setLoadedOutfitId(data.id);
-    setNewOutfitName("");
-    await loadData();
+    await refreshQuietly();
+    setSaving(false);
   }
 
   async function updateLoadedOutfit() {
@@ -168,7 +203,7 @@ export function OutfitsView() {
       .eq("id", loadedOutfitId);
 
     if (updateError) setError(friendlySupabaseError(updateError.message));
-    else await loadData();
+    else await refreshQuietly();
   }
 
   function loadOutfit(outfit: SavedOutfit) {
@@ -193,21 +228,8 @@ export function OutfitsView() {
     setLoadedOutfitId(outfit.id);
   }
 
-  async function renameOutfit(outfit: SavedOutfit) {
-    const name = prompt("Outfit name", outfit.name)?.trim();
-    if (!name) return;
-
-    const { error: updateError } = await supabase
-      .from("saved_outfits")
-      .update({ name, date_modified: new Date().toISOString() })
-      .eq("id", outfit.id);
-
-    if (updateError) setError(friendlySupabaseError(updateError.message));
-    else await loadData();
-  }
-
   async function deleteOutfit(id: string) {
-    if (!confirm("Delete this saved outfit?")) return;
+    if (!confirm("Delete this outfit from Closet? It will also leave any capsules.")) return;
 
     const outfit = outfits.find((o) => o.id === id);
     const { error: deleteError } = await supabase.from("saved_outfits").delete().eq("id", id);
@@ -225,7 +247,7 @@ export function OutfitsView() {
     }
 
     if (loadedOutfitId === id) setLoadedOutfitId(null);
-    await loadData();
+    await refreshQuietly();
   }
 
   async function setOutfitPreview(outfit: SavedOutfit, file: File) {
@@ -246,7 +268,7 @@ export function OutfitsView() {
         .eq("id", outfit.id);
 
       if (updateError) throw updateError;
-      await loadData();
+      await refreshQuietly();
     } catch (err) {
       setError(friendlySupabaseError(err instanceof Error ? err.message : "Failed to upload preview"));
     }
@@ -258,36 +280,7 @@ export function OutfitsView() {
       .from("saved_outfits")
       .update({ preview_image_path: null, date_modified: new Date().toISOString() })
       .eq("id", outfit.id);
-    await loadData();
-  }
-
-  function previewForOutfit(outfit: SavedOutfit) {
-    if (outfit.preview_image_path) {
-      return publicImageUrl(supabase, outfit.preview_image_path);
-    }
-    const fallbackId =
-      outfit.top_id ||
-      outfit.dress_id ||
-      outfit.outerwear_id ||
-      outfit.bottom_id ||
-      outfit.shoes_id ||
-      outfit.accessory_ids?.[0];
-    const piece = fallbackId ? items.find((i) => i.id === fallbackId) : null;
-    return piece ? publicImageUrl(supabase, piece.image_path) : null;
-  }
-
-  function outfitSummary(outfit: SavedOutfit) {
-    const parts: string[] = [];
-    for (const slot of OUTFIT_SLOT_CATEGORIES) {
-      const id = outfit[slot.outfitKey];
-      if (!id) continue;
-      const item = items.find((i) => i.id === id);
-      parts.push(`${slot.label}: ${item ? displayName(item.name) : "Missing"}`);
-    }
-    if ((outfit.accessory_ids ?? []).length > 0) {
-      parts.push(`${outfit.accessory_ids.length} accessories`);
-    }
-    return parts.join(" · ") || "Empty outfit";
+    await refreshQuietly();
   }
 
   const slotByCategory = useMemo(() => {
@@ -424,26 +417,18 @@ export function OutfitsView() {
       </SortableCategoryList>
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-4">
-        <h2 className="text-sm font-semibold text-zinc-800">Saved outfits</h2>
-        <p className="mt-1 text-xs text-zinc-500">Select at least 2 pieces to save.</p>
-        <div className="mt-3 flex gap-2">
-          <input
-            type="text"
-            placeholder="Outfit name"
-            value={newOutfitName}
-            onChange={(e) => setNewOutfitName(e.target.value)}
-            className="min-w-0 flex-1 rounded-xl border border-zinc-200 px-3 py-2 text-sm"
-          />
-          <button
-            type="button"
-            disabled={!canSaveOutfit || !newOutfitName.trim()}
-            onClick={saveOutfit}
-            className="shrink-0 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-          >
-            Save
-          </button>
-        </div>
-
+        <h2 className="text-sm font-semibold text-zinc-800">Save to Closet</h2>
+        <p className="mt-1 text-xs text-zinc-500">
+          Outfits save unnamed. Select at least 2 pieces, then save.
+        </p>
+        <button
+          type="button"
+          disabled={!canSaveOutfit || saving}
+          onClick={saveOutfit}
+          className="mt-3 w-full rounded-xl bg-zinc-900 py-3 text-sm font-semibold text-white disabled:opacity-50"
+        >
+          {saving ? "Saving..." : "Save outfit"}
+        </button>
         {loadedOutfitId && (
           <button
             type="button"
@@ -454,71 +439,76 @@ export function OutfitsView() {
             Update loaded outfit
           </button>
         )}
+      </section>
+
+      <section className="rounded-2xl border border-zinc-200 bg-white p-4">
+        <h2 className="text-sm font-semibold text-zinc-800">Closet</h2>
+        <p className="mt-0.5 text-xs text-zinc-500">All saved outfits live here.</p>
 
         {outfits.length === 0 ? (
-          <p className="mt-3 text-sm text-zinc-500">No saved outfits yet.</p>
+          <p className="mt-3 text-sm text-zinc-500">No outfits yet. Build one above and save it.</p>
         ) : (
-          <ul className="mt-4 space-y-3">
-            {outfits.map((outfit) => (
-              <li key={outfit.id} className="rounded-xl border border-zinc-200 p-3">
-                <div className="flex gap-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={previewForOutfit(outfit) ?? ""}
-                    alt={outfit.name}
-                    className="h-16 w-16 shrink-0 rounded-lg object-cover bg-white"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="font-medium text-zinc-900">{outfit.name}</p>
-                      {loadedOutfitId === outfit.id && (
-                        <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">
-                          Loaded
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-1 line-clamp-2 text-xs text-zinc-500">{outfitSummary(outfit)}</p>
-                  </div>
-                </div>
-
-                <div className="mt-3 flex flex-wrap gap-2">
+          <ul className="mt-4 grid grid-cols-2 gap-3">
+            {outfits.map((outfit) => {
+              const preview = previewForOutfit(supabase, outfit, items);
+              return (
+                <li key={outfit.id} className="overflow-hidden rounded-xl border border-zinc-200">
                   <button
                     type="button"
                     onClick={() => loadOutfit(outfit)}
-                    className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white"
+                    className="w-full text-left"
                   >
-                    Load
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={preview ?? ""}
+                      alt=""
+                      className="aspect-square w-full object-cover bg-zinc-100"
+                    />
+                    <div className="p-2">
+                      <p className="line-clamp-2 text-[11px] text-zinc-600">
+                        {outfitSummary(outfit, items)}
+                      </p>
+                      {loadedOutfitId === outfit.id && (
+                        <p className="mt-1 text-[10px] font-semibold text-green-700">Loaded</p>
+                      )}
+                    </div>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => renameOutfit(outfit)}
-                    className="rounded-lg border px-3 py-1.5 text-xs"
-                  >
-                    Rename
-                  </button>
-                  <PreviewPhotoButton onPick={(file) => setOutfitPreview(outfit, file)} />
-                  {outfit.preview_image_path && (
+                  <div className="flex flex-wrap gap-1 border-t border-zinc-100 p-2">
+                    <PreviewPhotoButton onPick={(file) => setOutfitPreview(outfit, file)} />
+                    {outfit.preview_image_path && (
+                      <button
+                        type="button"
+                        onClick={() => resetOutfitPreview(outfit)}
+                        className="rounded-lg border px-2 py-1 text-[10px]"
+                      >
+                        Default image
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => resetOutfitPreview(outfit)}
-                      className="rounded-lg border px-3 py-1.5 text-xs"
+                      onClick={() => deleteOutfit(outfit.id)}
+                      className="rounded-lg border border-red-200 px-2 py-1 text-[10px] text-red-600"
                     >
-                      Use default image
+                      Delete
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => deleteOutfit(outfit.id)}
-                    className="rounded-lg border border-red-200 px-3 py-1.5 text-xs text-red-600"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </li>
-            ))}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
+
+      <CapsulesSection
+        supabase={supabase}
+        items={items}
+        outfits={outfits}
+        capsules={capsules}
+        capsuleOutfits={capsuleOutfits}
+        onRefresh={refreshQuietly}
+        onError={setError}
+        onLoadOutfit={loadOutfit}
+      />
     </div>
   );
 }
@@ -531,7 +521,7 @@ function PreviewPhotoButton({ onPick }: { onPick: (file: File) => void }) {
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="rounded-lg border px-3 py-1.5 text-xs"
+        className="rounded-lg border px-2 py-1 text-[10px]"
       >
         Preview photo
       </button>

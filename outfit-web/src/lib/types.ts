@@ -53,6 +53,21 @@ export type SavedOutfit = {
   date_modified: string;
 };
 
+export type Capsule = {
+  id: string;
+  user_id: string;
+  name: string;
+  cover_image_path: string | null;
+  sort_order: number;
+  created_at: string;
+};
+
+export type CapsuleOutfit = {
+  capsule_id: string;
+  outfit_id: string;
+  sort_order: number;
+};
+
 export function displayName(name: string): string {
   return name.trim() || "Unnamed Item";
 }

@@ -2,9 +2,17 @@ export function friendlySupabaseError(message: string): string {
   if (
     message.includes("schema cache") ||
     message.includes("Could not find the table") ||
-    (message.includes("relation") && message.includes("does not exist"))
+    (message.includes("relation") && message.includes("does not exist")) ||
+    (message.includes("capsules") && message.includes("does not exist"))
   ) {
-    return "Database not set up yet. In Supabase, open SQL Editor, paste and run outfit-web/supabase/schema.sql, then refresh this page.";
+    return "Database not set up yet. In Supabase, open SQL Editor and run the latest migration files in outfit-web/supabase/, then refresh this page.";
+  }
+
+  if (
+    message.includes("capsule") &&
+    (message.includes("schema cache") || message.includes("Could not find"))
+  ) {
+    return "Capsules need a database update. In Supabase → SQL Editor, run outfit-web/supabase/migration_capsules.sql, then refresh.";
   }
 
   if (message.includes("Bucket not found") || message.includes("clothing-images")) {
