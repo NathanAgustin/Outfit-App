@@ -135,49 +135,53 @@ export function CapsulesSection({
         </button>
       </div>
 
-      <ul className="mt-4 space-y-2">
-        <li>
-          {creating ? (
-            <div className="flex items-center gap-2 rounded-xl border border-zinc-200 p-2">
-              <input
-                type="text"
-                placeholder="Capsule name"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                className="min-w-0 flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm"
-                autoFocus
-              />
-              <button
-                type="button"
-                disabled={!newName.trim()}
-                onClick={createCapsule}
-                className="rounded-lg bg-zinc-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-              >
-                Add
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCreating(false);
-                  setNewName("");
-                }}
-                className="rounded-lg border px-3 py-2 text-xs"
-              >
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setCreating(true)}
-              className="flex w-full items-center gap-3 rounded-xl border border-dashed border-zinc-300 px-3 py-2.5 text-left"
-            >
-              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-2xl text-zinc-500">
-                +
-              </span>
-              <span className="text-sm font-medium text-zinc-700">New capsule</span>
-            </button>
-          )}
+      {creating && (
+        <div className="mt-3 flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="Capsule name"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            className="min-w-0 flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+            autoFocus
+          />
+          <button
+            type="button"
+            disabled={!newName.trim()}
+            onClick={createCapsule}
+            className="rounded-lg bg-zinc-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+          >
+            Add
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setCreating(false);
+              setNewName("");
+            }}
+            className="rounded-lg border px-3 py-2 text-xs"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      <ul className="-mx-1 mt-4 flex gap-3 overflow-x-auto px-1 pb-1">
+        <li className="w-24 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setCreating(true);
+              setEditing(false);
+            }}
+            className="w-full text-left"
+          >
+            <span className="flex aspect-square w-full items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-3xl text-zinc-400">
+              +
+            </span>
+            <p className="mt-2 truncate text-center text-xs font-medium text-zinc-700">New</p>
+            <p className="truncate text-center text-[10px] text-zinc-400">capsule</p>
+          </button>
         </li>
 
         {orderedCapsules.map((capsule) => {
@@ -187,13 +191,13 @@ export function CapsulesSection({
             firstOutfitCover(supabase, capsule.id, capsuleOutfits, outfits, items);
 
           return (
-            <li key={capsule.id} className="flex items-center gap-2">
+            <li key={capsule.id} className="w-24 shrink-0">
               <button
                 type="button"
                 onClick={() => setOpenCapsuleId(capsule.id)}
-                className="flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-zinc-200 px-3 py-2 text-left"
+                className="w-full text-left"
               >
-                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-zinc-100">
+                <div className="aspect-square w-full overflow-hidden rounded-xl bg-zinc-100">
                   {cover ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={cover} alt="" className="h-full w-full object-cover" />
@@ -203,18 +207,18 @@ export function CapsulesSection({
                     </div>
                   )}
                 </div>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-zinc-900">{capsule.name}</p>
-                  <p className="text-xs text-zinc-500">
-                    {count} {count === 1 ? "outfit" : "outfits"}
-                  </p>
-                </div>
+                <p className="mt-2 truncate text-center text-xs font-medium text-zinc-900">
+                  {capsule.name}
+                </p>
+                <p className="truncate text-center text-[10px] text-zinc-500">
+                  {count} {count === 1 ? "outfit" : "outfits"}
+                </p>
               </button>
               {editing && !capsule.is_default && (
                 <button
                   type="button"
                   onClick={() => deleteCapsule(capsule)}
-                  className="shrink-0 rounded-lg border border-red-200 px-2 py-2 text-xs text-red-600"
+                  className="mt-1 w-full rounded-lg border border-red-200 py-1 text-[10px] text-red-600"
                 >
                   Delete
                 </button>
