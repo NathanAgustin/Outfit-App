@@ -564,11 +564,10 @@ export function OutfitsView() {
         <div className="rounded-xl border border-dashed border-zinc-300 p-3">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <p className="text-sm font-medium text-zinc-800">Outfit cover</p>
-              <p className="text-xs text-zinc-500">Optional photo for this outfit</p>
+              <p className="text-sm font-medium text-zinc-800">Outfit Cover</p>
             </div>
             <CoverPickerButton
-              label={saveCoverFile ? "Change" : "Add photo"}
+              label={saveCoverFile ? "Change" : "Add Photo"}
               onPick={onSaveCoverChange}
             />
           </div>

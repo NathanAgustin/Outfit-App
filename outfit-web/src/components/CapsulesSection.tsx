@@ -502,7 +502,7 @@ function CapsuleDetail({
               Rename
             </button>
           )}
-          <CoverPhotoButton label="Album cover" onPick={setCover} />
+          <CoverPhotoButton label="Capsule Cover" onPick={setCover} />
           {capsule.cover_image_path && (
             <button type="button" onClick={clearCover} className="rounded-lg border px-2 py-1 text-xs">
               Clear album cover
@@ -696,7 +696,7 @@ function CoverPhotoButton({
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="rounded-lg border px-2 py-1 text-xs"
+        className="rounded-xl border border-zinc-200 px-3 py-2 text-sm"
       >
         {label}
       </button>
