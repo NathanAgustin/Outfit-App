@@ -568,9 +568,6 @@ function CapsuleDetail({
               <p className="mt-2 text-center text-xs text-zinc-500">
                 {index + 1} of {orderedOutfits.length}
               </p>
-              <p className="mt-1 line-clamp-2 text-center text-xs text-zinc-600">
-                {outfitSummary(current!, items)}
-              </p>
             </div>
             <button
               type="button"
