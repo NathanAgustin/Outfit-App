@@ -551,7 +551,7 @@ export function OutfitsView() {
                       />
                       <span className="text-sm text-zinc-800">
                         {capsule.name}
-                        {locked ? " (always)" : ""}
+                        {locked ? " (Always)" : ""}
                       </span>
                     </label>
                   </li>
@@ -598,7 +598,6 @@ export function OutfitsView() {
         >
           {saving ? "Saving..." : "Save outfit"}
         </button>
-        <p className="text-xs text-zinc-500">Select at least 2 pieces. Saves into Saved Outfits plus any others you pick.</p>
         {loadedOutfitId && (
           <button
             type="button"

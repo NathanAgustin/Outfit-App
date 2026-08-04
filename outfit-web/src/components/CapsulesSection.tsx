@@ -180,7 +180,6 @@ export function CapsulesSection({
               +
             </span>
             <p className="mt-2 truncate text-center text-xs font-medium text-zinc-700">New</p>
-            <p className="truncate text-center text-[10px] text-zinc-400">capsule</p>
           </button>
         </li>
 
@@ -211,7 +210,7 @@ export function CapsulesSection({
                   {capsule.name}
                 </p>
                 <p className="truncate text-center text-[10px] text-zinc-500">
-                  {count} {count === 1 ? "outfit" : "outfits"}
+                  {count} {count === 1 ? "Outfit" : "Outfits"}
                 </p>
               </button>
               {editing && !capsule.is_default && (
@@ -285,11 +284,16 @@ function CapsuleDetail({
   const [index, setIndex] = useState(0);
   const [adding, setAdding] = useState(false);
   const [reorderMode, setReorderMode] = useState(false);
+  const [coverPath, setCoverPath] = useState<string | null>(capsule.cover_image_path);
   const touchStartX = useRef<number | null>(null);
 
   useEffect(() => {
     setIndex(0);
   }, [capsule.id]);
+
+  useEffect(() => {
+    setCoverPath(capsule.cover_image_path);
+  }, [capsule.id, capsule.cover_image_path]);
 
   useEffect(() => {
     if (orderedOutfits.length === 0) {
@@ -333,6 +337,7 @@ function CapsuleDetail({
         .update({ cover_image_path: path })
         .eq("id", capsule.id);
       if (error) throw error;
+      setCoverPath(path);
       await onRefresh();
     } catch (err) {
       onError(friendlySupabaseError(err instanceof Error ? err.message : "Failed to upload cover"));
@@ -340,8 +345,9 @@ function CapsuleDetail({
   }
 
   async function clearCover() {
-    if (!capsule.cover_image_path) return;
+    if (!coverPath) return;
     onError(null);
+    const pathToRemove = coverPath;
     const { error } = await supabase
       .from("capsules")
       .update({ cover_image_path: null })
@@ -350,8 +356,9 @@ function CapsuleDetail({
       onError(friendlySupabaseError(error.message));
       return;
     }
+    setCoverPath(null);
     try {
-      await deleteImage(supabase, capsule.cover_image_path);
+      await deleteImage(supabase, pathToRemove);
     } catch {
       // best-effort
     }
@@ -503,9 +510,13 @@ function CapsuleDetail({
             </button>
           )}
           <CoverPhotoButton label="Capsule Cover" onPick={setCover} />
-          {capsule.cover_image_path && (
-            <button type="button" onClick={clearCover} className="rounded-lg border px-2 py-1 text-xs">
-              Clear album cover
+          {coverPath && (
+            <button
+              type="button"
+              onClick={clearCover}
+              className="rounded-xl border border-zinc-200 px-3 py-2 text-sm"
+            >
+              Clear Cover
             </button>
           )}
           {!capsule.is_default && (
@@ -576,17 +587,18 @@ function CapsuleDetail({
           <div className="mt-3 flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => current && onLoadOutfit(current)}
-              className="flex-1 rounded-xl bg-zinc-900 py-2 text-sm font-semibold text-white"
+              disabled={orderedOutfits.length < 2}
+              onClick={() => setReorderMode((v) => !v)}
+              className="flex-1 rounded-xl border border-zinc-300 py-2 text-sm font-medium disabled:opacity-50"
             >
-              Load in builder
+              {reorderMode ? "Done Sorting" : "Reorder"}
             </button>
-            <CoverPhotoButton label="Outfit cover" onPick={setOutfitCover} />
+            <CoverPhotoButton label="The Look" onPick={setOutfitCover} />
             {current?.preview_image_path && (
               <button
                 type="button"
                 onClick={clearOutfitCover}
-                className="rounded-xl border px-3 py-2 text-sm"
+                className="rounded-xl border border-zinc-300 px-3 py-2 text-sm font-medium"
               >
                 Default image
               </button>
@@ -612,14 +624,15 @@ function CapsuleDetail({
             {adding ? "Done adding" : `Add from ${DEFAULT_CAPSULE_NAME}`}
           </button>
         )}
-        <button
-          type="button"
-          disabled={orderedOutfits.length < 2}
-          onClick={() => setReorderMode((v) => !v)}
-          className="flex-1 rounded-xl border border-zinc-300 py-2 text-sm font-medium disabled:opacity-50"
-        >
-          {reorderMode ? "Done sorting" : "Reorder"}
-        </button>
+        {orderedOutfits.length > 0 && (
+          <button
+            type="button"
+            onClick={() => current && onLoadOutfit(current)}
+            className="flex-1 rounded-xl bg-zinc-900 py-2 text-sm font-semibold text-white"
+          >
+            Load in Builder
+          </button>
+        )}
       </div>
 
       {adding && !capsule.is_default && (
@@ -691,12 +704,17 @@ function CoverPhotoButton({
   label?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const isTheLook = label === "The Look";
   return (
     <>
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="rounded-xl border border-zinc-200 px-3 py-2 text-sm"
+        className={
+          isTheLook
+            ? "flex-1 rounded-xl border border-zinc-300 py-2 text-sm font-medium"
+            : "rounded-xl border border-zinc-200 px-3 py-2 text-sm"
+        }
       >
         {label}
       </button>
