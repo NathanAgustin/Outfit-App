@@ -312,7 +312,6 @@ function CapsuleDetail({
   }, [capsule.is_default, outfits, memberships]);
 
   async function renameCapsule() {
-    if (capsule.is_default) return;
     const name = prompt("Capsule name", capsule.name)?.trim();
     if (!name) return;
     onError(null);
@@ -504,11 +503,9 @@ function CapsuleDetail({
           ‹ Capsules
         </button>
         <div className="flex flex-wrap justify-end gap-2">
-          {!capsule.is_default && (
-            <button type="button" onClick={renameCapsule} className="rounded-lg border px-2 py-1 text-xs">
-              Rename
-            </button>
-          )}
+          <button type="button" onClick={renameCapsule} className="rounded-lg border px-2 py-1 text-xs">
+            Rename
+          </button>
           <CoverPhotoButton label="Capsule Cover" onPick={setCover} />
           {coverPath && (
             <button

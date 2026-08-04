@@ -13,7 +13,7 @@ import {
   displayName,
 } from "@/lib/types";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type MatchKey = keyof ReturnType<typeof getCompatibilityMatches>;
 
@@ -315,8 +315,28 @@ function ItemCarousel({
   const item = items[index];
   if (!item) return null;
 
+  const touchStartX = useRef<number | null>(null);
+
+  function onTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.changedTouches[0]?.clientX ?? null;
+  }
+
+  function onTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current == null) return;
+    const endX = e.changedTouches[0]?.clientX ?? touchStartX.current;
+    const delta = endX - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(delta) < 40) return;
+    if (delta < 0) onNext();
+    else onPrev();
+  }
+
   return (
-    <div className={`mt-3 flex items-center gap-3 ${large ? "flex-col" : ""}`}>
+    <div
+      className={`mt-3 flex items-center gap-3 ${large ? "flex-col" : ""}`}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
       {large ? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}

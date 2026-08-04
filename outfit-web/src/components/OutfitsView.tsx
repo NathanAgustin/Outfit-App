@@ -148,7 +148,7 @@ export function OutfitsView() {
           const message =
             err && typeof err === "object" && "message" in err
               ? String((err as { message: string }).message)
-              : "Failed to set up Saved Outfits capsule";
+              : "Failed to set up All Outfits capsule";
           if (message.includes("is_default")) {
             setError(
               "Capsules need a database update. In Supabase → SQL Editor, run outfit-web/supabase/migration_default_capsule.sql, then refresh."
@@ -564,7 +564,7 @@ export function OutfitsView() {
         <div className="rounded-xl border border-dashed border-zinc-300 p-3">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <p className="text-sm font-medium text-zinc-800">Outfit Cover</p>
+              <p className="text-sm font-medium text-zinc-800">The Look</p>
             </div>
             <CoverPickerButton
               label={saveCoverFile ? "Change" : "Add Photo"}
@@ -596,7 +596,7 @@ export function OutfitsView() {
           onClick={saveOutfit}
           className="w-full rounded-xl bg-zinc-900 py-3 text-sm font-semibold text-white disabled:opacity-50"
         >
-          {saving ? "Saving..." : "Save outfit"}
+          {saving ? "Saving..." : "Save"}
         </button>
         {loadedOutfitId && (
           <button
@@ -677,8 +677,28 @@ function PreviewCard({
   supabase: SupabaseClient;
   drag: Parameters<typeof CategoryDragHint>[0];
 }) {
+  const touchStartX = useRef<number | null>(null);
+
+  function onTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.changedTouches[0]?.clientX ?? null;
+  }
+
+  function onTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current == null) return;
+    const endX = e.changedTouches[0]?.clientX ?? touchStartX.current;
+    const delta = endX - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(delta) < 40) return;
+    if (delta < 0) onNext();
+    else onPrev();
+  }
+
   return (
-    <article className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+    <article
+      className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm"
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">{label}</p>
         <div className="flex items-center gap-2">

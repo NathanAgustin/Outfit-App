@@ -1,7 +1,8 @@
 import { Capsule, CapsuleOutfit, SavedOutfit } from "@/lib/types";
 import { SupabaseClient } from "@supabase/supabase-js";
 
-export const DEFAULT_CAPSULE_NAME = "Saved Outfits";
+export const DEFAULT_CAPSULE_NAME = "All Outfits";
+const LEGACY_DEFAULT_CAPSULE_NAMES = ["Saved Outfits"];
 
 export function sortCapsulesForDisplay(capsules: Capsule[]): Capsule[] {
   return [...capsules].sort((a, b) => {
@@ -24,9 +25,13 @@ export async function ensureDefaultCapsule(
   let defaultCapsule = nextCapsules.find((capsule) => capsule.is_default) ?? null;
 
   if (!defaultCapsule) {
-    const named = nextCapsules.find(
-      (capsule) => capsule.name.trim().toLowerCase() === DEFAULT_CAPSULE_NAME.toLowerCase()
-    );
+    const named = nextCapsules.find((capsule) => {
+      const normalized = capsule.name.trim().toLowerCase();
+      if (normalized === DEFAULT_CAPSULE_NAME.toLowerCase()) return true;
+      return LEGACY_DEFAULT_CAPSULE_NAMES.some(
+        (legacy) => normalized === legacy.toLowerCase()
+      );
+    });
     if (named) {
       const { data, error } = await supabase
         .from("capsules")
